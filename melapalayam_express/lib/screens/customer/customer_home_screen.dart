@@ -252,12 +252,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
-            Icon(Icons.chat, color: Color(0xFF047857), size: 22),
-            SizedBox(width: 8),
-            Text(
-              'Dispatch to Mela Express Group',
-              style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 14),
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset('logo.png', width: 26, height: 26, fit: BoxFit.contain),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Dispatch to Mela Express Group',
+                style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13),
+              ),
             ),
           ],
         ),
@@ -599,31 +604,52 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Row(
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 4),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset('logo.png', fit: BoxFit.contain),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Mela Express',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          Row(
+                            children: [
+                              const Text(
+                                'Mela Express',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF059669),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'மேலப்பாளையம்',
+                                  style: TextStyle(color: Colors.white, fontSize: 10),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'மேலப்பாளையம்',
-                              style: TextStyle(color: Colors.white, fontSize: 10),
-                            ),
-                          ),
+                          const SizedBox(height: 2),
+                          RiderCounterBadge(count: _activeRidersCount, isLoading: _isLoadingRiders),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      RiderCounterBadge(count: _activeRidersCount, isLoading: _isLoadingRiders),
                     ],
                   ),
                   if (_activeOrder != null)
@@ -1162,11 +1188,29 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    const Text('Active Order Tracking', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text('Order #${_activeOrder!.orderNumber}', style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 10)),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(2),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Image.asset('logo.png', fit: BoxFit.contain),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Active Order Tracking', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text('Order #${_activeOrder!.orderNumber}', style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 10)),
+                      ],
+                    ),
                   ],
                 ),
                 IconButton(
@@ -1385,13 +1429,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFF059669),
-              borderRadius: BorderRadius.circular(16),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
             ),
-            child: const Icon(Icons.two_wheeler, color: Colors.white, size: 28),
+            padding: const EdgeInsets.all(4),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset('logo.png', fit: BoxFit.contain),
+            ),
           ),
           const SizedBox(height: 12),
           const Text('Rider Partner Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF1E293B))),
