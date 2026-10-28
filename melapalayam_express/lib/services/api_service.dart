@@ -85,6 +85,33 @@ class ApiService {
     return [];
   }
 
+  // 4b. Get Ongoing Active Order for Customer Phone
+  Future<OrderModel?> getCustomerActiveOrder(String phone) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/orders/customer/$phone/active'),
+        headers: _headers,
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['hasActiveOrder'] == true && data['order'] != null) {
+        return OrderModel.fromJson(data['order']);
+      }
+    } catch (_) {}
+
+    // Fallback: check customer orders history for any active order
+    try {
+      final list = await getCustomerOrders(phone);
+      for (final o in list) {
+        if (!o.isDelivered && !o.isCancelled) {
+          return o;
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
   // 5. Cancel Order (Subject to locked cancellation rules)
   Future<void> cancelOrder(String orderId, {String reason = 'Customer requested'}) async {
     final response = await http.post(

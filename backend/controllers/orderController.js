@@ -148,6 +148,27 @@ exports.getCustomerOrders = async (req, res) => {
   }
 };
 
+// 3b. Get Latest Ongoing Active Order for Customer Phone
+exports.getCustomerActiveOrder = async (req, res) => {
+  try {
+    const { phone } = req.params;
+    const activeOrder = await Order.findOne({
+      customerPhone: phone,
+      status: { $in: ['ORDER_PLACED', 'RIDER_ASSIGNED', 'ITEM_PURCHASED', 'ON_THE_WAY'] },
+    })
+      .populate('assignedRider', 'name phone')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      hasActiveOrder: !!activeOrder,
+      order: activeOrder,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // 4. Get Available Orders for Riders
 exports.getAvailableOrders = async (req, res) => {
   try {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   // Network Config
-  // static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
-  static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
+  static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
+  // static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
 
   // Regional Dispatch
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';

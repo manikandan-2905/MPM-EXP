@@ -90,8 +90,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _fetchLiveActiveRiders();
-      if (_currentViewMode == 'rider' && _isRiderLoggedIn && _isRiderOnline) {
-        _fetchRiderPool();
+      if (_currentViewMode == 'rider' && _isRiderLoggedIn) {
+        if (_isRiderOnline) _fetchRiderPool();
+        if (_riderActiveTrip != null) _refreshRiderActiveTrip();
       }
       if (_activeOrder != null && _showTrackingModal) {
         _refreshActiveOrder();
@@ -172,6 +173,97 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         PreferencesService.saveRiderCompletedTrip(jsonEncode(t));
       }
     }
+
+    // Recover Customer and Rider active orders on launch
+    await _recoverCustomerActiveOrder();
+    if (_loggedInRider != null) {
+      await _recoverRiderActiveTrip();
+    }
+  }
+
+  // Active Order Persistence & Recovery
+  Future<void> _recoverCustomerActiveOrder() async {
+    try {
+      final cachedOrderId = await PreferencesService.getCustomerActiveOrderId();
+      if (cachedOrderId != null && cachedOrderId.isNotEmpty) {
+        final order = await _apiService.getOrderById(cachedOrderId);
+        if (!order.isDelivered && !order.isCancelled) {
+          if (mounted) {
+            setState(() {
+              _activeOrder = order;
+              _showTrackingModal = true;
+            });
+          }
+          return;
+        } else {
+          await PreferencesService.clearCustomerActiveOrderId();
+        }
+      }
+
+      final phone = _primaryPhoneCtrl.text.trim();
+      if (phone.isNotEmpty) {
+        final activeOrder = await _apiService.getCustomerActiveOrder(phone);
+        if (activeOrder != null && !activeOrder.isDelivered && !activeOrder.isCancelled) {
+          await PreferencesService.saveCustomerActiveOrderId(activeOrder.id);
+          if (mounted) {
+            setState(() {
+              _activeOrder = activeOrder;
+              _showTrackingModal = true;
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _recoverRiderActiveTrip() async {
+    if (_loggedInRider == null) return;
+    try {
+      final activeTrip = await _apiService.getRiderActiveOrder(_loggedInRider!.id);
+      if (activeTrip != null && !activeTrip.isDelivered && !activeTrip.isCancelled) {
+        await PreferencesService.saveRiderActiveOrderId(activeTrip.id);
+        if (mounted) {
+          setState(() {
+            _riderActiveTrip = activeTrip;
+            _currentViewMode = 'rider';
+            _riderTab = 'active';
+          });
+        }
+        return;
+      }
+
+      final cachedId = await PreferencesService.getRiderActiveOrderId();
+      if (cachedId != null && cachedId.isNotEmpty) {
+        final order = await _apiService.getOrderById(cachedId);
+        if (!order.isDelivered && !order.isCancelled && order.assignedRiderId == _loggedInRider!.id) {
+          if (mounted) {
+            setState(() {
+              _riderActiveTrip = order;
+              _currentViewMode = 'rider';
+              _riderTab = 'active';
+            });
+          }
+          return;
+        }
+      }
+
+      await PreferencesService.clearRiderActiveOrderId();
+    } catch (_) {}
+  }
+
+  Future<void> _refreshRiderActiveTrip() async {
+    if (_riderActiveTrip == null || _loggedInRider == null) return;
+    try {
+      final updated = await _apiService.getOrderById(_riderActiveTrip!.id);
+      if (mounted) {
+        if (updated.isDelivered || updated.isCancelled) {
+          await PreferencesService.clearRiderActiveOrderId();
+          setState(() => _riderActiveTrip = null);
+        } else {
+          setState(() => _riderActiveTrip = updated);
+        }
+      }
+    } catch (_) {}
   }
 
   void _syncPhoneCheckboxes() {
@@ -300,6 +392,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       final result = await _apiService.createOrder(payload);
       final order = result['order'] as OrderModel;
 
+      await PreferencesService.saveCustomerProfile('Customer', phone);
+      await PreferencesService.saveCustomerActiveOrderId(order.id);
+
       setState(() {
         _activeOrder = order;
         _isPlacingOrder = false;
@@ -324,7 +419,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     if (_activeOrder == null) return;
     try {
       final updated = await _apiService.getOrderById(_activeOrder!.id);
-      if (mounted) setState(() => _activeOrder = updated);
+      if (mounted) {
+        setState(() => _activeOrder = updated);
+        if (updated.isDelivered || updated.isCancelled) {
+          await PreferencesService.clearCustomerActiveOrderId();
+        }
+      }
     } catch (_) {}
   }
 
@@ -341,6 +441,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
     try {
       await _apiService.cancelOrder(_activeOrder!.id);
+      await PreferencesService.clearCustomerActiveOrderId();
       await _refreshActiveOrder();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order cancelled successfully.'), backgroundColor: Color(0xFF059669)),
@@ -373,7 +474,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       });
 
       _fetchRiderPool();
-      _fetchRiderActiveOrder();
+      await _recoverRiderActiveTrip();
     } catch (e) {
       setState(() => _isRiderLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -400,19 +501,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _fetchRiderActiveOrder() async {
-    if (_loggedInRider == null) return;
-    try {
-      final order = await _apiService.getRiderActiveOrder(_loggedInRider!.id);
-      if (mounted) setState(() => _riderActiveTrip = order);
-    } catch (_) {}
+    await _recoverRiderActiveTrip();
   }
 
   Future<void> _atomicClaimOrder(OrderModel order) async {
     if (_loggedInRider == null) return;
     try {
       final claimed = await _apiService.claimOrder(order.id, _loggedInRider!.id);
+      await PreferencesService.saveRiderActiveOrderId(claimed.id);
       setState(() {
         _riderActiveTrip = claimed;
+        _riderTab = 'active';
         _riderPoolOrders.removeWhere((o) => o.id == order.id);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -458,6 +557,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         paymentMode: _closingPaymentMode,
       );
 
+      await PreferencesService.clearRiderActiveOrderId();
+
       final completedMap = {
         'orderNumber': _riderActiveTrip!.orderNumber,
         'items': _riderActiveTrip!.itemsList.join(', '),
@@ -497,6 +598,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   Future<void> _logoutRider() async {
     await PreferencesService.clearRiderSession();
+    await PreferencesService.clearRiderActiveOrderId();
     setState(() {
       _isRiderLoggedIn = false;
       _loggedInRider = null;
@@ -697,10 +799,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           child: ListView(
             padding: const EdgeInsets.all(14),
             children: [
-              // Active Order Banner (if exists)
-              if (_activeOrder != null) _buildActiveOrderBanner(),
-
-              if (_activeOrder != null) const SizedBox(height: 12),
+              // Active Order Banner (if exists and ongoing)
+              if (_activeOrder != null && !_activeOrder!.isDelivered && !_activeOrder!.isCancelled) ...[
+                _buildActiveOrderBanner(),
+                const SizedBox(height: 12),
+              ],
 
               // Legal Warning Card (Amber)
               const LegalWarningBanner(),
@@ -1522,7 +1625,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 20),
-                  onPressed: () => setState(() => _showTrackingModal = false),
+                  onPressed: () async {
+                    if (_activeOrder != null && (_activeOrder!.isDelivered || _activeOrder!.isCancelled)) {
+                      await PreferencesService.clearCustomerActiveOrderId();
+                      setState(() {
+                        _showTrackingModal = false;
+                        _activeOrder = null;
+                      });
+                    } else {
+                      setState(() => _showTrackingModal = false);
+                    }
+                  },
                 ),
               ],
             ),
@@ -1532,53 +1645,159 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // Delivery PIN Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('DELIVERY HANDOVER PIN',
-                              style: TextStyle(color: Color(0xFF6EE7B7), fontWeight: FontWeight.w800, fontSize: 9.5)),
-                          SizedBox(height: 2),
-                          Text('Share with rider only on arrival', style: TextStyle(color: Color(0xFFE2E8F0), fontSize: 10)),
-                        ],
+                // Delivery PIN Card (only while trip is ongoing)
+                if (!_activeOrder!.isDelivered && !_activeOrder!.isCancelled) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.2),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5)),
-                          borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('DELIVERY HANDOVER PIN',
+                                style: TextStyle(color: Color(0xFF6EE7B7), fontWeight: FontWeight.w800, fontSize: 9.5)),
+                            SizedBox(height: 2),
+                            Text('Share with rider only on arrival', style: TextStyle(color: Color(0xFFE2E8F0), fontSize: 10)),
+                          ],
                         ),
-                        child: Text(
-                          _activeOrder!.deliveryPin,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                            color: Color(0xFF6EE7B7),
-                            letterSpacing: 2,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.2),
+                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            _activeOrder!.deliveryPin,
+                            style: const TextStyle(
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              color: Color(0xFF6EE7B7),
+                              letterSpacing: 2,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 14),
+                ],
 
-                const SizedBox(height: 14),
+                // Delivery Completed Celebration Card
+                if (_activeOrder!.isDelivered) ...[
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF059669).withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 48),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Order Delivered Successfully! 🎉',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Delivery PIN verified and package handed over.\nTotal Fare: ₹${_activeOrder!.fare}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 11.5, height: 1.4),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF064E3B),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: () async {
+                              await PreferencesService.clearCustomerActiveOrderId();
+                              setState(() {
+                                _showTrackingModal = false;
+                                _activeOrder = null;
+                              });
+                            },
+                            child: const Text('Back to Home', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
+                // Order Cancelled Card
+                if (_activeOrder!.isCancelled) ...[
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0xFFFECDD3)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.cancel_outlined, color: Color(0xFFE11D48), size: 40),
+                        const SizedBox(height: 8),
+                        const Text('Order Cancelled',
+                            style: TextStyle(color: Color(0xFF9F1239), fontWeight: FontWeight.w900, fontSize: 15)),
+                        const SizedBox(height: 4),
+                        const Text('This order has been cancelled and closed.',
+                            style: TextStyle(color: Color(0xFFE11D48), fontSize: 11)),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFE11D48),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () async {
+                              await PreferencesService.clearCustomerActiveOrderId();
+                              setState(() {
+                                _showTrackingModal = false;
+                                _activeOrder = null;
+                              });
+                            },
+                            child: const Text('Return to Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
 
                 // Milestones Stepper
                 Container(

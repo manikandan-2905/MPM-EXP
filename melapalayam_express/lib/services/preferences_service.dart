@@ -29,6 +29,41 @@ class PreferencesService {
         (prefs.getString(_keyCustomerPhone)?.isNotEmpty ?? false);
   }
 
+  static const String _keyCustomerActiveOrderId = 'mpm_customer_active_order_id';
+  static const String _keyRiderActiveOrderId = 'mpm_rider_active_order_id';
+
+  // Customer Active Order Persistence
+  static Future<void> saveCustomerActiveOrderId(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCustomerActiveOrderId, orderId.trim());
+  }
+
+  static Future<String?> getCustomerActiveOrderId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyCustomerActiveOrderId);
+  }
+
+  static Future<void> clearCustomerActiveOrderId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyCustomerActiveOrderId);
+  }
+
+  // Rider Active Order Persistence
+  static Future<void> saveRiderActiveOrderId(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyRiderActiveOrderId, orderId.trim());
+  }
+
+  static Future<String?> getRiderActiveOrderId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyRiderActiveOrderId);
+  }
+
+  static Future<void> clearRiderActiveOrderId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyRiderActiveOrderId);
+  }
+
   // Rider Session
   static Future<void> saveRiderSession({
     required String id,
@@ -55,6 +90,7 @@ class PreferencesService {
     await prefs.remove(_keyRiderId);
     await prefs.remove(_keyRiderName);
     await prefs.remove(_keyRiderPhone);
+    await prefs.remove(_keyRiderActiveOrderId);
   }
 
   // FCM Token Cache

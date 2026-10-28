@@ -4,6 +4,7 @@ const {
   createOrder,
   getOrderById,
   getCustomerOrders,
+  getCustomerActiveOrder,
   getAvailableOrders,
   claimOrder,
   updateMilestone,
@@ -13,6 +14,7 @@ const {
 
 // Guest Customer Endpoints
 router.post('/', createOrder);
+router.get('/customer/:phone/active', getCustomerActiveOrder);
 router.get('/customer/:phone', getCustomerOrders);
 router.get('/:id', getOrderById);
 router.post('/:orderId/cancel', cancelOrder);
