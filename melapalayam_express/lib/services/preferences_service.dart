@@ -67,4 +67,18 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyFcmToken);
   }
+
+  // Rider Completed Deliveries History
+  static Future<void> saveRiderCompletedTrip(String tripJson) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('mpm_rider_completed_trips') ?? [];
+    list.insert(0, tripJson);
+    await prefs.setStringList('mpm_rider_completed_trips', list);
+  }
+
+  static Future<List<String>> getRiderCompletedTrips() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList('mpm_rider_completed_trips') ?? [];
+  }
 }
+

@@ -43,6 +43,7 @@ class OrderModel {
   final bool isOtpBypassed;
   final int fare;
   final double estimatedDistanceKm;
+  final String paymentMode; // 'Cash' | 'UPI'
   final DateTime createdAt;
 
   OrderModel({
@@ -68,6 +69,7 @@ class OrderModel {
     required this.isOtpBypassed,
     required this.fare,
     required this.estimatedDistanceKm,
+    this.paymentMode = 'Cash',
     required this.createdAt,
   });
 
@@ -115,6 +117,7 @@ class OrderModel {
       estimatedDistanceKm: (json['estimatedDistanceKm'] != null)
           ? (json['estimatedDistanceKm'] as num).toDouble()
           : 2.0,
+      paymentMode: json['paymentMode'] ?? 'Cash',
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),

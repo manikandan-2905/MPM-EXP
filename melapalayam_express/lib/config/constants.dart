@@ -15,7 +15,19 @@ class AppConstants {
   static const int perKmRate = 10; // ₹10/km beyond 2 km
   static const int urgentSurcharge = 15; // +₹15
 
-  // Theme Colors (Exact match with MPMExpress Prototype)
+  // Theme Colors (Exact match with MPM Express Prototype)
+  static const Color mpm50 = Color(0xFFECFDF5);
+  static const Color mpm100 = Color(0xFFD1FAE5);
+  static const Color mpm200 = Color(0xFFA7F3D0);
+  static const Color mpm300 = Color(0xFF6EE7B7);
+  static const Color mpm400 = Color(0xFF34D399);
+  static const Color mpm500 = Color(0xFF10B981);
+  static const Color mpm600 = Color(0xFF059669);
+  static const Color mpm700 = Color(0xFF047857);
+  static const Color mpm800 = Color(0xFF065F46);
+  static const Color mpm900 = Color(0xFF064E3B);
+  static const Color mpm950 = Color(0xFF022C22);
+
   static const Color emerald950 = Color(0xFF022C22);
   static const Color emerald900 = Color(0xFF064E3B);
   static const Color emerald800 = Color(0xFF065F46);
@@ -32,21 +44,22 @@ class AppConstants {
   static const Color slate600 = Color(0xFF475569);
   static const Color slate500 = Color(0xFF64748B);
   static const Color slate400 = Color(0xFF94A3B8);
+  static const Color slate300 = Color(0xFFCBD5E1);
   static const Color slate200 = Color(0xFFE2E8F0);
   static const Color slate100 = Color(0xFFF1F5F9);
   static const Color slate50 = Color(0xFFF8FAFC);
 
-  // Categories matching Prototype
+  // Categories matching Prototype (Icon, Label, Full Title)
   static const List<Map<String, String>> prototypeCategories = [
-    {'id': 'Food', 'label': '🍱 Food / Tiffin'},
-    {'id': 'Meat', 'label': '🥩 Fresh Meat'},
-    {'id': 'Medicines', 'label': '💊 Medicine'},
-    {'id': 'Documents', 'label': '🔑 Keys / Docs'},
-    {'id': 'Tailoring', 'label': '🧵 Tailoring'},
-    {'id': 'Custom', 'label': '✍️ பிற / Other'},
+    {'id': 'Meat', 'label': 'Fresh Meat', 'emoji': '🥩', 'title': 'Fresh Mutton / Meat'},
+    {'id': 'Food', 'label': 'Food / Tiffin', 'emoji': '🍱', 'title': 'Hot Food / Tiffin'},
+    {'id': 'Medicines', 'label': 'Medicine', 'emoji': '💊', 'title': 'Medicines'},
+    {'id': 'Documents', 'label': 'Keys / Docs', 'emoji': '🔑', 'title': 'Keys / Urgent Documents'},
+    {'id': 'Tailoring', 'label': 'Tailoring', 'emoji': '🧵', 'title': 'Tailoring / Clothes'},
+    {'id': 'Custom', 'label': 'Other / தனி', 'emoji': '✍️', 'title': 'Custom Request'},
   ];
 
   // Prohibited Items Warning (Tamil & English)
   static const String legalWarningText =
-      'தடைசெய்யப்பட்டவை: பணம், மதுபானம், போதைப்பொருட்கள், பில் இல்லாத மருந்துகள் அனுப்ப அனுமதி இல்லை. (Strictly No Cash/Alcohol/Illegal items).';
+      'பாதுகாப்பு விதிமுறைகள்: பணம் (Cash), மதுபானம், போதைப்பொருட்கள், அல்லது பில் இல்லாத மருந்துகள் கொண்டு செல்லப்பட மாட்டாது.';
 }

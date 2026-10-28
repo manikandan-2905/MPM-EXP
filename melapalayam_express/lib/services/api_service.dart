@@ -188,6 +188,7 @@ class ApiService {
     String riderId, {
     String? deliveryPin,
     bool isBypass = false,
+    String paymentMode = 'Cash',
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/orders/$orderId/complete'),
@@ -196,6 +197,7 @@ class ApiService {
         'riderId': riderId,
         'deliveryPin': deliveryPin,
         'isBypass': isBypass,
+        'paymentMode': paymentMode,
       }),
     );
 
