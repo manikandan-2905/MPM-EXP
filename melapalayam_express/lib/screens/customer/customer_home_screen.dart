@@ -260,7 +260,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
-                'Dispatch to Mela Express Group',
+                'Dispatch to MPMExpress Group',
                 style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
@@ -539,7 +539,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Icon(Icons.bolt, color: Color(0xFF34D399), size: 16),
               SizedBox(width: 4),
               Text(
-                'Mela Express Demo',
+                'MPMExpress Demo',
                 style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ],
@@ -629,7 +629,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           Row(
                             children: [
                               const Text(
-                                'Mela Express',
+                                'MPM Express',
                                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(width: 6),

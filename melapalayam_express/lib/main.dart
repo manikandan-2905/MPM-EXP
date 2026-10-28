@@ -36,7 +36,7 @@ class MelapalayamExpressApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mela Express | மேலப்பாளையம்',
+      title: 'MPM Express | மேலப்பாளையம்',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

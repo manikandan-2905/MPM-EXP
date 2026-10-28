@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 class AppConstants {
-  // Network Config (Use 10.0.2.2 for Android emulator, or your PC's LAN IP for physical device)
-  static const String apiBaseUrl = 'http://10.0.2.2:5000/api';
+  // Network Config
+  // static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
+  static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
 
   // Regional Dispatch
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';
@@ -14,7 +15,7 @@ class AppConstants {
   static const int perKmRate = 10; // ₹10/km beyond 2 km
   static const int urgentSurcharge = 15; // +₹15
 
-  // Theme Colors (Exact match with Mela Express Prototype)
+  // Theme Colors (Exact match with MPMExpress Prototype)
   static const Color emerald950 = Color(0xFF022C22);
   static const Color emerald900 = Color(0xFF064E3B);
   static const Color emerald800 = Color(0xFF065F46);
