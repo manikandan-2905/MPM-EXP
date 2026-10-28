@@ -64,6 +64,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // Active Order (for live tracking modal)
   OrderModel? _activeOrder;
   bool _showTrackingModal = false;
+  bool _showNotificationDrawer = false;
 
   // WhatsApp Share Dialog
   String? _pendingWhatsAppText;
@@ -672,10 +673,166 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             if (_currentViewMode == 'rider') _buildRiderView(),
             if (_currentViewMode == 'inspector') _buildStateInspectorView(),
 
+            // Notification Center Drawer Popup
+            if (_showNotificationDrawer && _currentViewMode == 'customer')
+              _buildNotificationDrawer(),
+
             // Full-screen Tracking Modal Sheet
             if (_showTrackingModal && _activeOrder != null)
               Positioned.fill(child: _buildCustomerTrackingModal()),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Notification Center Drawer Popup (from Prototype)
+  Widget _buildNotificationDrawer() {
+    return Positioned(
+      top: 90,
+      left: 16,
+      right: 16,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE5F6DE),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.notifications_active_rounded, size: 14, color: Color(0xFF467D32)),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Notifications & Alerts',
+                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                      ),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _showNotificationDrawer = false),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF1F5F9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4FBF0),
+                  border: Border.all(color: const Color(0xFFCBEDBC)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF76C457),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text('Active Riders on Duty', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF0F172A))),
+                          SizedBox(height: 2),
+                          Text('3 riders currently active in Melapalayam Bazaar & Kurichi.', style: TextStyle(fontSize: 10, color: Color(0xFF475569))),
+                          SizedBox(height: 2),
+                          Text('2 mins ago', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF467D32))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFCBD5E1),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text('Fair Hyperlocal Pricing', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF0F172A))),
+                          SizedBox(height: 2),
+                          Text('Base fare ₹30 for first 2 km anywhere inside Melapalayam.', style: TextStyle(fontSize: 10, color: Color(0xFF475569))),
+                          SizedBox(height: 2),
+                          Text('1 hour ago', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => setState(() => _showNotificationDrawer = false),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Close', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF475569))),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -687,16 +844,27 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Widget _buildCustomerView() {
     return Column(
       children: [
-        // Customer Header
+        // Customer Header With Organic Modern Curve
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF162A1A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 15,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -708,42 +876,57 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     children: [
                       Row(
                         children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFF76C457),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF76C457).withOpacity(0.5),
+                                  blurRadius: 6,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 7),
                           const Text(
                             'MPM Express',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.2),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withOpacity(0.2),
-                              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.35)),
-                              borderRadius: BorderRadius.circular(6),
+                              color: const Color(0xFF76C457),
+                              borderRadius: BorderRadius.circular(9999),
                             ),
                             child: const Text(
                               'மேலப்பாளையம்',
-                              style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 9.5, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Color(0xFF0F172A), fontSize: 9.5, fontWeight: FontWeight.w900),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           Container(
-                            width: 7,
-                            height: 7,
+                            width: 6,
+                            height: 6,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Color(0xFF10B981),
+                              color: Color(0xFF76C457),
                             ),
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 6),
                           Text(
                             '$_activeRidersCount Riders Available on duty',
                             style: const TextStyle(
-                              color: Color(0xFFA7F3D0),
-                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFA7DF92),
+                              fontWeight: FontWeight.w700,
                               fontSize: 11,
                             ),
                           ),
@@ -752,33 +935,82 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     ],
                   ),
 
-                  // Discreet Rider Access Trigger
-                  GestureDetector(
-                    onTap: () => setState(() => _currentViewMode = 'rider'),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        border: Border.all(color: const Color(0xFF334155)),
-                        borderRadius: BorderRadius.circular(10),
+                  // Header actions: Notification Bell & Discreet Rider Portal
+                  Row(
+                    children: [
+                      // Dedicated Notification Bell with animated counter badge
+                      GestureDetector(
+                        onTap: () => setState(() => _showNotificationDrawer = !_showNotificationDrawer),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B).withOpacity(0.9),
+                                border: Border.all(color: const Color(0xFF334155)),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 17),
+                            ),
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: Container(
+                                width: 15,
+                                height: 15,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF76C457),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF76C457).withOpacity(0.6),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                alignment: Alignment.center,
+                                child: const Text(
+                                  '2',
+                                  style: TextStyle(color: Color(0xFF0F172A), fontSize: 9, fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: const Icon(Icons.shield_outlined, color: Color(0xFF94A3B8), size: 16),
-                    ),
+                      const SizedBox(width: 8),
+
+                      // Discreet Rider Access Trigger
+                      GestureDetector(
+                        onTap: () => setState(() => _currentViewMode = 'rider'),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withOpacity(0.9),
+                            border: Border.all(color: const Color(0xFF334155)),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.shield_outlined, color: Color(0xFF94A3B8), size: 16),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Segmented Service Tabs (Pickup & Drop vs Buy For Me)
+              // Tactile Pill Service Buttons (Round Corner + Sliding Smooth Style)
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF020617).withOpacity(0.6),
-                  border: Border.all(color: const Color(0xFF1E293B)),
-                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF0F172A).withOpacity(0.55),
+                  border: Border.all(color: const Color(0xFF334155).withOpacity(0.7)),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
-                padding: const EdgeInsets.all(3),
+                padding: const EdgeInsets.all(4),
                 child: Row(
                   children: [
                     Expanded(
@@ -842,25 +1074,35 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     return GestureDetector(
       onTap: () => setState(() => _activeTab = tab),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF059669) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: isSelected ? const Color(0xFF76C457) : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999),
           boxShadow: isSelected
-              ? [BoxShadow(color: const Color(0xFF059669).withOpacity(0.3), blurRadius: 6, offset: const Offset(0, 2))]
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF76C457).withOpacity(0.45),
+                    blurRadius: 16,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
               : null,
         ),
         alignment: Alignment.center,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 13, color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
-            const SizedBox(width: 5),
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
+            ),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                fontWeight: FontWeight.bold,
+                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
+                fontWeight: FontWeight.w900,
                 fontSize: 12,
               ),
             ),
@@ -873,17 +1115,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // Floating Active Order Notification Pill
   Widget _buildActiveOrderBanner() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
-        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF76C457).withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Row(
@@ -892,14 +1138,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.2),
-                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFF76C457).withOpacity(0.2),
+                  border: Border.all(color: const Color(0xFF76C457).withOpacity(0.4)),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.alt_route_rounded, color: Color(0xFF34D399), size: 18),
+                child: const Icon(Icons.alt_route_rounded, color: Color(0xFF76C457), size: 18),
               ),
               const SizedBox(width: 10),
               Column(
@@ -910,21 +1156,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       const Text('Active Order', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(4),
+                          color: const Color(0xFF76C457),
+                          borderRadius: BorderRadius.circular(9999),
                         ),
                         child: Text(
                           '#${_activeOrder!.orderNumber}',
-                          style: const TextStyle(color: Color(0xFF020617), fontWeight: FontWeight.bold, fontSize: 9.5),
+                          style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.w900, fontSize: 9.5),
                         ),
                       ),
                     ],
                   ),
                   Text(
                     _activeOrder!.status.replaceAll('_', ' '),
-                    style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 10),
+                    style: const TextStyle(color: Color(0xFFA7DF92), fontSize: 10, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -932,11 +1178,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: const Color(0xFF020617),
+              backgroundColor: const Color(0xFF76C457),
+              foregroundColor: const Color(0xFF0F172A),
               elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+              shadowColor: const Color(0xFF76C457).withOpacity(0.45),
             ),
             onPressed: () => setState(() => _showTrackingModal = true),
             child: const Text('Track', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11)),
@@ -952,10 +1199,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -966,7 +1213,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             children: [
               Row(
                 children: const [
-                  Icon(Icons.phone_outlined, size: 13, color: Color(0xFF059669)),
+                  Icon(Icons.phone_outlined, size: 13, color: Color(0xFF467D32)),
                   SizedBox(width: 5),
                   Text(
                     'CUSTOMER MOBILE (கைபேசி எண்)',
@@ -975,14 +1222,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(6),
+                  color: const Color(0xFFE5F6DE),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
                 child: const Text(
                   'Stored Locally',
-                  style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 9),
+                  style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9),
                 ),
               ),
             ],
@@ -993,7 +1240,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Row(
@@ -1045,7 +1292,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       height: 18,
                       child: Checkbox(
                         value: _isSenderMe,
-                        activeColor: const Color(0xFF059669),
+                        activeColor: const Color(0xFF76C457),
                         onChanged: (v) {
                           setState(() {
                             _isSenderMe = v ?? false;
@@ -1073,7 +1320,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       height: 18,
                       child: Checkbox(
                         value: _isReceiverMe,
-                        activeColor: const Color(0xFF059669),
+                        activeColor: const Color(0xFF76C457),
                         onChanged: (v) {
                           setState(() {
                             _isReceiverMe = v ?? false;
@@ -1174,10 +1421,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFECFDF5) : Colors.white,
-                        borderRadius: BorderRadius.circular(14),
+                        color: isSelected ? const Color(0xFFF4FBF0) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF059669) : const Color(0xFFE2E8F0),
+                          color: isSelected ? const Color(0xFF76C457) : const Color(0xFFE2E8F0),
                           width: isSelected ? 1.6 : 1,
                         ),
                       ),
@@ -1193,7 +1440,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                              color: isSelected ? const Color(0xFF064E3B) : const Color(0xFF334155),
+                              color: isSelected ? const Color(0xFF172E12) : const Color(0xFF334155),
                             ),
                           ),
                         ],
@@ -1222,7 +1469,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
@@ -1237,9 +1484,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
+                          color: const Color(0xFF76C457),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFA7F3D0), width: 2),
+                          border: Border.all(color: const Color(0xFFCBEDBC), width: 2),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -1252,17 +1499,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   GestureDetector(
                     onTap: () => _detectCurrentGPS('pickup'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        border: Border.all(color: const Color(0xFFA7F3D0)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFE5F6DE),
+                        border: Border.all(color: const Color(0xFFCBEDBC)),
+                        borderRadius: BorderRadius.circular(9999),
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.location_searching, size: 10, color: Color(0xFF047857)),
+                          Icon(Icons.location_searching, size: 10, color: Color(0xFF3A642B)),
                           SizedBox(width: 4),
-                          Text('Use GPS', style: TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.bold, fontSize: 9.5)),
+                          Text('Use GPS', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
                         ],
                       ),
                     ),
@@ -1286,7 +1533,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Column(
@@ -1316,17 +1563,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   GestureDetector(
                     onTap: () => _detectCurrentGPS('drop'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        border: Border.all(color: const Color(0xFFA7F3D0)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFE5F6DE),
+                        border: Border.all(color: const Color(0xFFCBEDBC)),
+                        borderRadius: BorderRadius.circular(9999),
                       ),
                       child: Row(
                         children: const [
-                          Icon(Icons.location_searching, size: 10, color: Color(0xFF047857)),
+                          Icon(Icons.location_searching, size: 10, color: Color(0xFF3A642B)),
                           SizedBox(width: 4),
-                          Text('Use GPS', style: TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.bold, fontSize: 9.5)),
+                          Text('Use GPS', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
                         ],
                       ),
                     ),
@@ -1349,7 +1596,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEB), // amber-50
                     border: Border.all(color: const Color(0xFFFDE68A)),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1380,7 +1627,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
@@ -1421,7 +1668,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFBEB),
                 border: Border.all(color: const Color(0xFFFDE68A)),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1450,7 +1697,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
@@ -1480,7 +1727,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
           Switch(
             value: _isUrgent,
-            activeColor: const Color(0xFF059669),
+            activeColor: const Color(0xFF76C457),
             onChanged: (val) => setState(() => _isUrgent = val),
           ),
         ],
@@ -1496,11 +1743,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A), // slate-900
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFF1E293B)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 15, offset: const Offset(0, 5)),
+          BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 18, offset: const Offset(0, 6)),
         ],
       ),
       child: Column(
@@ -1520,10 +1771,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text('₹$fare',
-                          style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                          style: const TextStyle(color: Color(0xFF76C457), fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                       const SizedBox(width: 6),
                       Text(distText,
-                          style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11)),
+                          style: const TextStyle(color: Color(0xFFA7DF92), fontWeight: FontWeight.bold, fontSize: 11)),
                     ],
                   ),
                 ],
@@ -1535,10 +1786,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   const SizedBox(height: 2),
                   Row(
                     children: const [
-                      Icon(Icons.qr_code_2_rounded, size: 12, color: Color(0xFF34D399)),
+                      Icon(Icons.qr_code_2_rounded, size: 12, color: Color(0xFF76C457)),
                       SizedBox(width: 4),
                       Text('Cash / UPI Handover',
-                          style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 11)),
+                          style: TextStyle(color: Color(0xFF76C457), fontWeight: FontWeight.bold, fontSize: 11)),
                     ],
                   ),
                 ],
@@ -1561,26 +1812,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF10B981), Color(0xFF2DD4BF)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF76C457),
+              borderRadius: BorderRadius.circular(9999),
               boxShadow: [
-                BoxShadow(color: const Color(0xFF10B981).withOpacity(0.35), blurRadius: 15, offset: const Offset(0, 4)),
+                BoxShadow(color: const Color(0xFF76C457).withOpacity(0.45), blurRadius: 18, offset: const Offset(0, 4)),
               ],
             ),
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
-                foregroundColor: const Color(0xFF022C22),
+                foregroundColor: const Color(0xFF0F172A),
                 shadowColor: Colors.transparent,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
               ),
               icon: _isPlacingOrder
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF022C22)))
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
                   : const Icon(Icons.delivery_dining_rounded, size: 20),
               label: Text(
                 _isPlacingOrder ? 'Placing Order...' : 'Confirm & Place Order 🛵',
@@ -1615,7 +1862,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('LIVE STATUS TRACKER',
-                        style: TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1.2)),
+                        style: TextStyle(color: Color(0xFF86CF69), fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1.2)),
                     const SizedBox(height: 2),
                     Text(
                       'Order #${_activeOrder!.orderNumber}',
@@ -1651,12 +1898,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFF76C457).withOpacity(0.4)),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 15, offset: const Offset(0, 4)),
+                      ],
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1665,17 +1915,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text('DELIVERY HANDOVER PIN',
-                                style: TextStyle(color: Color(0xFF6EE7B7), fontWeight: FontWeight.w800, fontSize: 9.5)),
+                                style: TextStyle(color: Color(0xFF86CF69), fontWeight: FontWeight.w800, fontSize: 9.5)),
                             SizedBox(height: 2),
-                            Text('Share with rider only on arrival', style: TextStyle(color: Color(0xFFE2E8F0), fontSize: 10)),
+                            Text('Share with rider only upon package receipt', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 10)),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withOpacity(0.2),
-                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.5)),
-                            borderRadius: BorderRadius.circular(14),
+                            color: const Color(0xFF76C457).withOpacity(0.2),
+                            border: Border.all(color: const Color(0xFF76C457).withOpacity(0.5)),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
                             _activeOrder!.deliveryPin,
@@ -1683,7 +1933,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w900,
                               fontSize: 18,
-                              color: Color(0xFF6EE7B7),
+                              color: Color(0xFF76C457),
                               letterSpacing: 2,
                             ),
                           ),
@@ -1700,14 +1950,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                        colors: [Color(0xFF0F172A), Color(0xFF162A1A)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFF76C457).withOpacity(0.4)),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF059669).withOpacity(0.3),
+                          color: const Color(0xFF76C457).withOpacity(0.2),
                           blurRadius: 15,
                           offset: const Offset(0, 6),
                         ),
@@ -1715,7 +1966,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     ),
                     child: Column(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 48),
+                        const Icon(Icons.check_circle_rounded, color: Color(0xFF76C457), size: 48),
                         const SizedBox(height: 10),
                         const Text(
                           'Order Delivered Successfully! 🎉',
@@ -1725,18 +1976,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         Text(
                           'Delivery PIN verified and package handed over.\nTotal Fare: ₹${_activeOrder!.fare}',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 11.5, height: 1.4),
+                          style: const TextStyle(color: Color(0xFFE5F6DE), fontSize: 11.5, height: 1.4),
                         ),
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF064E3B),
+                              backgroundColor: const Color(0xFF76C457),
+                              foregroundColor: const Color(0xFF0F172A),
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                             ),
                             onPressed: () async {
                               await PreferencesService.clearCustomerActiveOrderId();
@@ -1781,7 +2032,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                             ),
                             onPressed: () async {
                               await PreferencesService.clearCustomerActiveOrderId();
@@ -1804,7 +2055,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Column(
@@ -1846,7 +2097,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
@@ -1855,12 +2106,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         Row(
                           children: [
                             Container(
-                              width: 40,
-                              height: 40,
+                              width: 42,
+                              height: 42,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF5),
-                                border: Border.all(color: const Color(0xFFA7F3D0)),
-                                borderRadius: BorderRadius.circular(12),
+                                color: const Color(0xFFE5F6DE),
+                                border: Border.all(color: const Color(0xFFCBEDBC)),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               alignment: Alignment.center,
                               child: const Text('🛵', style: TextStyle(fontSize: 20)),
@@ -1874,13 +2125,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 const Text('Hero Splendor • TN-72-AB-4021', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
                                 const SizedBox(height: 2),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFECFDF5),
-                                    borderRadius: BorderRadius.circular(4),
+                                    color: const Color(0xFFE5F6DE),
+                                    borderRadius: BorderRadius.circular(9999),
                                   ),
                                   child: const Text('Verified Partner',
-                                      style: TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.bold, fontSize: 8.5)),
+                                      style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 8.5)),
                                 ),
                               ],
                             ),
@@ -1890,13 +2141,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           GestureDetector(
                             onTap: () => launchUrl(Uri.parse('tel:${_activeOrder!.riderPhone}')),
                             child: Container(
-                              width: 36,
-                              height: 36,
+                              width: 38,
+                              height: 38,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF059669),
-                                borderRadius: BorderRadius.circular(12),
+                                color: const Color(0xFF76C457),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF76C457).withOpacity(0.4),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
                               ),
-                              child: const Icon(Icons.phone, color: Colors.white, size: 16),
+                              child: const Icon(Icons.phone, color: Color(0xFF0F172A), size: 16),
                             ),
                           ),
                       ],
@@ -1911,7 +2169,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
@@ -1932,7 +2190,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             backgroundColor: _activeOrder!.canCancel ? const Color(0xFFFFF1F2) : const Color(0xFFE2E8F0),
                             foregroundColor: _activeOrder!.canCancel ? const Color(0xFFE11D48) : const Color(0xFF94A3B8),
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                           ),
                           onPressed: _activeOrder!.canCancel ? _handleCustomerCancel : null,
                           child: const Text('Cancel', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -1958,19 +2216,27 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               width: 20,
               height: 20,
               decoration: BoxDecoration(
-                color: isCompleted ? const Color(0xFF059669) : const Color(0xFFE2E8F0),
+                color: isCompleted ? const Color(0xFF76C457) : const Color(0xFFE2E8F0),
                 shape: BoxShape.circle,
+                boxShadow: isCompleted
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF76C457).withOpacity(0.4),
+                          blurRadius: 6,
+                        ),
+                      ]
+                    : null,
               ),
               alignment: Alignment.center,
               child: isCompleted
-                  ? const Text('✓', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))
+                  ? const Text('✓', style: TextStyle(color: Color(0xFF0F172A), fontSize: 10, fontWeight: FontWeight.w900))
                   : const Text('', style: TextStyle(fontSize: 10)),
             ),
             if (!isLast)
               Container(
                 width: 2,
                 height: 24,
-                color: isCompleted ? const Color(0xFF059669) : const Color(0xFFE2E8F0),
+                color: isCompleted ? const Color(0xFF76C457) : const Color(0xFFE2E8F0),
               ),
           ],
         ),
@@ -2006,42 +2272,45 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Widget _buildRiderLoginView() {
     return Container(
       padding: const EdgeInsets.all(24),
-      color: const Color(0xFFF1F5F9),
+      color: const Color(0xFFF8FAFC),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF059669), Color(0xFF2DD4BF)],
+                colors: [Color(0xFF5DA441), Color(0xFF76C457), Color(0xFFBEF264)],
                 begin: Alignment.bottomLeft,
                 end: Alignment.topRight,
               ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
-                BoxShadow(color: const Color(0xFF059669).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 4)),
+                BoxShadow(color: const Color(0xFF76C457).withOpacity(0.45), blurRadius: 20, offset: const Offset(0, 6)),
               ],
             ),
-            child: const Icon(Icons.two_wheeler_rounded, size: 30, color: Colors.white),
+            child: const Icon(Icons.two_wheeler_rounded, size: 34, color: Color(0xFF0F172A)),
           ),
           const SizedBox(height: 12),
           const Text('Rider Partner Portal', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0F172A))),
           const Text('Melapalayam Dispatch Access', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
           const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3)),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('PRE-REGISTERED PHONE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 TextField(
                   controller: _riderLoginPhoneCtrl,
                   keyboardType: TextInputType.phone,
@@ -2051,20 +2320,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 const SizedBox(height: 4),
                 const Text('Pre-seeded accounts: Peer Mohamed (9845012345), Sudalai (9363302266)',
                     style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF059669),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: const Color(0xFF76C457),
+                      foregroundColor: const Color(0xFF0F172A),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shadowColor: const Color(0xFF76C457).withOpacity(0.45),
                     ),
                     onPressed: _isRiderLoading ? null : _loginRider,
                     child: _isRiderLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : const Text('Access Dashboard', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
+                        : const Text('Access Dashboard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -2087,19 +2357,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Widget _buildRiderDashboardView() {
     return Column(
       children: [
-        // Top Curved Header (Inspired by reference UI)
+        // Top Curved Header (Matching Prototype Organic Curved Header Wave)
         Container(
           width: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF1E1B4B), Color(0xFF28286A)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF162A1A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
             boxShadow: [
               BoxShadow(
-                color: Color(0x331E1B4B),
+                color: Color(0x33000000),
                 blurRadius: 18,
                 offset: Offset(0, 8),
               ),
@@ -2166,21 +2436,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.35), width: 2),
+                      border: Border.all(color: const Color(0xFF76C457).withOpacity(0.4), width: 2),
                     ),
                     child: CircleAvatar(
                       radius: 34,
-                      backgroundColor: const Color(0xFF4F46E5),
-                      child: const Icon(Icons.two_wheeler_rounded, size: 36, color: Colors.white),
+                      backgroundColor: const Color(0xFF76C457),
+                      child: const Icon(Icons.two_wheeler_rounded, size: 36, color: Color(0xFF0F172A)),
                     ),
                   ),
                   Container(
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                      color: _isRiderOnline ? const Color(0xFF10B981) : Colors.redAccent,
+                      color: _isRiderOnline ? const Color(0xFF76C457) : Colors.redAccent,
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF1E1B4B), width: 2),
+                      border: Border.all(color: const Color(0xFF0F172A), width: 2),
                     ),
                   ),
                 ],
@@ -2201,9 +2471,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               const Text(
                 'Delivery Partner • Melapalayam Hub',
                 style: TextStyle(
-                  color: Color(0xFFC7D2FE),
+                  color: Color(0xFFA7DF92),
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 16),
@@ -2227,7 +2497,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     icon: Icons.account_balance_wallet_outlined,
                     title: 'Earned',
                     subtitle: '₹${_loggedInRider?.totalEarnings ?? 245}',
-                    iconColor: const Color(0xFF34D399),
+                    iconColor: const Color(0xFF76C457),
                   ),
                   GestureDetector(
                     onTap: () => _toggleRiderOnline(!_isRiderOnline),
@@ -2235,7 +2505,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       icon: _isRiderOnline ? Icons.power_settings_new_rounded : Icons.power_off_rounded,
                       title: 'Duty',
                       subtitle: _isRiderOnline ? 'ONLINE' : 'OFFLINE',
-                      iconColor: _isRiderOnline ? const Color(0xFF34D399) : Colors.redAccent,
+                      iconColor: _isRiderOnline ? const Color(0xFF76C457) : Colors.redAccent,
                       highlight: true,
                     ),
                   ),
@@ -2245,12 +2515,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
         ),
 
-        // Bottom Section: 2 Segmented Tabs
+        // Bottom Section: 2 Segmented Tabs (Tactile Pill Slider Track)
         Container(
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF0F172A).withOpacity(0.55),
+            border: Border.all(color: const Color(0xFF334155).withOpacity(0.7)),
+            borderRadius: BorderRadius.circular(9999),
           ),
           padding: const EdgeInsets.all(4),
           child: Row(
@@ -2261,14 +2532,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: _riderTab == 'active' ? Colors.white : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
+                      color: _riderTab == 'active' ? const Color(0xFF76C457) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9999),
                       boxShadow: _riderTab == 'active'
                           ? [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                                color: const Color(0xFF76C457).withOpacity(0.45),
+                                blurRadius: 16,
+                                offset: const Offset(0, 3),
                               ),
                             ]
                           : null,
@@ -2279,15 +2550,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         Icon(
                           Icons.electric_moped_outlined,
                           size: 16,
-                          color: _riderTab == 'active' ? const Color(0xFF1E1B4B) : const Color(0xFF64748B),
+                          color: _riderTab == 'active' ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'Active Orders',
                           style: TextStyle(
                             fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: _riderTab == 'active' ? const Color(0xFF1E1B4B) : const Color(0xFF64748B),
+                            fontWeight: FontWeight.w900,
+                            color: _riderTab == 'active' ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
                           ),
                         ),
                         if (_riderPoolOrders.isNotEmpty && _riderActiveTrip == null) ...[
@@ -2295,12 +2566,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(10),
+                              color: _riderTab == 'active' ? const Color(0xFF0F172A) : const Color(0xFF76C457),
+                              borderRadius: BorderRadius.circular(9999),
                             ),
                             child: Text(
                               '${_riderPoolOrders.length}',
-                              style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: _riderTab == 'active' ? const Color(0xFF76C457) : const Color(0xFF0F172A),
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
                         ],
@@ -2315,14 +2590,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      color: _riderTab == 'completed' ? Colors.white : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
+                      color: _riderTab == 'completed' ? const Color(0xFF76C457) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9999),
                       boxShadow: _riderTab == 'completed'
                           ? [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                                color: const Color(0xFF76C457).withOpacity(0.45),
+                                blurRadius: 16,
+                                offset: const Offset(0, 3),
                               ),
                             ]
                           : null,
@@ -2333,15 +2608,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         Icon(
                           Icons.task_alt_rounded,
                           size: 16,
-                          color: _riderTab == 'completed' ? const Color(0xFF1E1B4B) : const Color(0xFF64748B),
+                          color: _riderTab == 'completed' ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'Completed Orders',
                           style: TextStyle(
                             fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: _riderTab == 'completed' ? const Color(0xFF1E1B4B) : const Color(0xFF64748B),
+                            fontWeight: FontWeight.w900,
+                            color: _riderTab == 'completed' ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
                           ),
                         ),
                       ],
@@ -2375,12 +2650,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
         color: highlight
-            ? (iconColor ?? const Color(0xFF34D399)).withOpacity(0.18)
+            ? (iconColor ?? const Color(0xFF76C457)).withOpacity(0.18)
             : Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: highlight
-              ? (iconColor ?? const Color(0xFF34D399)).withOpacity(0.4)
+              ? (iconColor ?? const Color(0xFF76C457)).withOpacity(0.4)
               : Colors.white.withOpacity(0.12),
         ),
       ),
@@ -2391,7 +2666,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(fontSize: 9.5, color: Color(0xFFC7D2FE), fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 9.5, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 2),
           Text(
@@ -2438,13 +2713,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   const SizedBox(height: 14),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF059669),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      backgroundColor: const Color(0xFF76C457),
+                      foregroundColor: const Color(0xFF0F172A),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      shadowColor: const Color(0xFF76C457).withOpacity(0.45),
                     ),
                     icon: const Icon(Icons.power_settings_new_rounded, size: 16),
-                    label: const Text('Go Online Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    label: const Text('Go Online Now', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
                     onPressed: () => _toggleRiderOnline(true),
                   ),
                 ],
@@ -2459,14 +2735,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD1FAE5),
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFFE5F6DE),
+                    borderRadius: BorderRadius.circular(9999),
                   ),
                   child: Text(
                     '${_riderPoolOrders.length} Open',
-                    style: const TextStyle(color: Color(0xFF047857), fontWeight: FontWeight.bold, fontSize: 11),
+                    style: const TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.w900, fontSize: 11),
                   ),
                 ),
               ],
@@ -2477,7 +2753,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Column(
@@ -2506,7 +2782,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: order.isUrgent ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0),
           width: order.isUrgent ? 1.5 : 1,
@@ -2514,8 +2790,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -2531,7 +2807,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(9999),
                     ),
                     child: Text(
                       '#${order.orderNumber}',
@@ -2544,7 +2820,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(9999),
                       ),
                       child: const Text('⚡ URGENT',
                           style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
@@ -2554,7 +2830,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               Text(
                 'Fee: ₹${order.fare}',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF047857)),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF3A642B)),
               ),
             ],
           ),
@@ -2581,7 +2857,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFF059669)),
+              const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFF76C457)),
               const SizedBox(width: 5),
               Expanded(
                 child: Text('To: ${order.dropAddress}',
@@ -2596,13 +2872,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF059669),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                backgroundColor: const Color(0xFF76C457),
+                foregroundColor: const Color(0xFF0F172A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shadowColor: const Color(0xFF76C457).withOpacity(0.45),
               ),
               icon: const Icon(Icons.lock_open_rounded, size: 15),
-              label: const Text('Accept & Pick Order', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              label: const Text('Accept & Pick Order', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
               onPressed: () => _atomicClaimOrder(order),
             ),
           ),
@@ -2621,12 +2898,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF76C457), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF10B981).withOpacity(0.08),
-            blurRadius: 14,
+            color: const Color(0xFF76C457).withOpacity(0.12),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
@@ -2642,7 +2919,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('PICKED ORDER IN PROGRESS',
-                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF3A642B))),
                   const SizedBox(height: 2),
                   Text('#${trip.orderNumber}',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0F172A))),
@@ -2651,12 +2928,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD1FAE5),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFE5F6DE),
+                  borderRadius: BorderRadius.circular(9999),
                 ),
                 child: Text(
                   'Fee: ₹${trip.fare}',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF047857)),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF3A642B)),
                 ),
               ),
             ],
@@ -2669,7 +2946,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Column(
@@ -2694,7 +2971,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.check_circle, size: 13, color: Color(0xFF10B981)),
+                        const Icon(Icons.check_circle, size: 13, color: Color(0xFF76C457)),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(item,
@@ -2715,7 +2992,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Column(
@@ -2743,14 +3020,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on_rounded, color: Color(0xFF059669), size: 16),
+                    const Icon(Icons.location_on_rounded, color: Color(0xFF76C457), size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('DELIVERY DESTINATION',
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF3A642B))),
                           Text(trip.dropAddress,
                               style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
                         ],
@@ -2760,8 +3037,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2563EB),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         minimumSize: const Size(0, 30),
                       ),
                       icon: const Icon(Icons.turn_right_rounded, size: 12),
@@ -2781,7 +3058,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFBFDBFE)),
             ),
             child: Column(
@@ -2811,8 +3088,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2563EB),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     icon: const Icon(Icons.phone, size: 14),
                     label: Text(
@@ -2828,8 +3105,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFF2563EB),
                       side: const BorderSide(color: Color(0xFF93C5FD)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                     icon: const Icon(Icons.phone, size: 12),
                     label: Text('Call Pickup Contact (${trip.pickupPhone})',
@@ -2851,7 +3128,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF59E0B),
                   foregroundColor: const Color(0xFF0F172A),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
                 icon: const Icon(Icons.shopping_bag_outlined, size: 16),
@@ -2865,10 +3142,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D9488),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: const Color(0xFF76C457),
+                  foregroundColor: const Color(0xFF0F172A),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  shadowColor: const Color(0xFF76C457).withOpacity(0.45),
                 ),
                 icon: const Icon(Icons.two_wheeler_rounded, size: 16),
                 label: const Text('Heading to Customer Door', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
@@ -2881,7 +3159,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: const Color(0xFFCBD5E1)),
               ),
               child: Column(
@@ -2914,10 +3192,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: _closingPaymentMode == 'Cash' ? const Color(0xFF047857) : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              color: _closingPaymentMode == 'Cash' ? const Color(0xFF76C457) : Colors.white,
+                              borderRadius: BorderRadius.circular(9999),
                               border: Border.all(
-                                color: _closingPaymentMode == 'Cash' ? const Color(0xFF047857) : const Color(0xFFCBD5E1),
+                                color: _closingPaymentMode == 'Cash' ? const Color(0xFF76C457) : const Color(0xFFCBD5E1),
                               ),
                             ),
                             alignment: Alignment.center,
@@ -2926,7 +3204,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
-                                color: _closingPaymentMode == 'Cash' ? Colors.white : const Color(0xFF334155),
+                                color: _closingPaymentMode == 'Cash' ? const Color(0xFF0F172A) : const Color(0xFF334155),
                               ),
                             ),
                           ),
@@ -2940,7 +3218,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
                               color: _closingPaymentMode == 'UPI' ? const Color(0xFF2563EB) : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(9999),
                               border: Border.all(
                                 color: _closingPaymentMode == 'UPI' ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1),
                               ),
@@ -2964,10 +3242,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF059669),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        backgroundColor: const Color(0xFF76C457),
+                        foregroundColor: const Color(0xFF0F172A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        shadowColor: const Color(0xFF76C457).withOpacity(0.45),
                       ),
                       icon: const Icon(Icons.verified, size: 16),
                       label: const Text(
@@ -3054,12 +3333,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.03),
-                    blurRadius: 6,
+                    blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -3078,13 +3357,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(6),
+                              color: const Color(0xFFE5F6DE),
+                              borderRadius: BorderRadius.circular(9999),
                             ),
                             child: const Text('✅ DELIVERED',
-                                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF047857))),
+                                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF3A642B))),
                           ),
                         ],
                       ),
@@ -3093,7 +3372,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF047857),
+                          color: Color(0xFF3A642B),
                         ),
                       ),
                     ],

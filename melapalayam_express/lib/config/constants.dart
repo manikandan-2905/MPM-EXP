@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   // Network Config
-  static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
-  // static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
+  // static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
+  static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
 
   // Regional Dispatch
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';
@@ -15,27 +15,27 @@ class AppConstants {
   static const int perKmRate = 10; // ₹10/km beyond 2 km
   static const int urgentSurcharge = 15; // +₹15
 
-  // Theme Colors (Exact match with MPM Express Prototype)
-  static const Color mpm50 = Color(0xFFECFDF5);
-  static const Color mpm100 = Color(0xFFD1FAE5);
-  static const Color mpm200 = Color(0xFFA7F3D0);
-  static const Color mpm300 = Color(0xFF6EE7B7);
-  static const Color mpm400 = Color(0xFF34D399);
-  static const Color mpm500 = Color(0xFF10B981);
-  static const Color mpm600 = Color(0xFF059669);
-  static const Color mpm700 = Color(0xFF047857);
-  static const Color mpm800 = Color(0xFF065F46);
-  static const Color mpm900 = Color(0xFF064E3B);
-  static const Color mpm950 = Color(0xFF022C22);
+  // Theme Colors (Exact match with MPM Express #76C457 Prototype)
+  static const Color mpm50 = Color(0xFFF4FBF0);
+  static const Color mpm100 = Color(0xFFE5F6DE);
+  static const Color mpm200 = Color(0xFFCBEDBC);
+  static const Color mpm300 = Color(0xFFA7DF92);
+  static const Color mpm400 = Color(0xFF86CF69);
+  static const Color mpm500 = Color(0xFF76C457); // Exact user brand color #76C457
+  static const Color mpm600 = Color(0xFF5DA441);
+  static const Color mpm700 = Color(0xFF467D32);
+  static const Color mpm800 = Color(0xFF3A642B);
+  static const Color mpm900 = Color(0xFF325327);
+  static const Color mpm950 = Color(0xFF172E12);
 
-  static const Color emerald950 = Color(0xFF022C22);
-  static const Color emerald900 = Color(0xFF064E3B);
-  static const Color emerald800 = Color(0xFF065F46);
-  static const Color emerald700 = Color(0xFF047857);
-  static const Color emerald600 = Color(0xFF059669);
-  static const Color emerald500 = Color(0xFF10B981);
-  static const Color emerald200 = Color(0xFFA7F3D0);
-  static const Color emerald50 = Color(0xFFECFDF5);
+  static const Color emerald950 = Color(0xFF172E12);
+  static const Color emerald900 = Color(0xFF325327);
+  static const Color emerald800 = Color(0xFF3A642B);
+  static const Color emerald700 = Color(0xFF467D32);
+  static const Color emerald600 = Color(0xFF5DA441);
+  static const Color emerald500 = Color(0xFF76C457);
+  static const Color emerald200 = Color(0xFFCBEDBC);
+  static const Color emerald50 = Color(0xFFF4FBF0);
 
   static const Color slate950 = Color(0xFF020617);
   static const Color slate900 = Color(0xFF0F172A);

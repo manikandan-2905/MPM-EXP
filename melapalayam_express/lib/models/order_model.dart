@@ -85,6 +85,11 @@ class OrderModel {
 
   String? get riderName => assignedRider != null ? assignedRider!['name'] : null;
   String? get riderPhone => assignedRider != null ? assignedRider!['phone'] : null;
+  String? get assignedRiderId => assignedRider != null
+      ? (assignedRider!['_id']?.toString() ??
+          assignedRider!['id']?.toString() ??
+          assignedRider!['riderId']?.toString())
+      : null;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
