@@ -13,7 +13,9 @@ class RiderLoginScreen extends StatefulWidget {
 
 class _RiderLoginScreenState extends State<RiderLoginScreen> {
   final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -39,9 +41,18 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
 
   Future<void> _login() async {
     final phone = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
+
     if (phone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter valid 10-digit registered rider phone')),
+      );
+      return;
+    }
+
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your password (last 5 digits of phone)')),
       );
       return;
     }
@@ -50,7 +61,11 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
 
     try {
       final fcmToken = await NotificationService().getCachedOrFreshToken();
-      final rider = await ApiService().loginRider(phone, fcmToken: fcmToken);
+      final rider = await ApiService().loginRider(
+        phone,
+        password: password,
+        fcmToken: fcmToken,
+      );
 
       await PreferencesService.saveRiderSession(
         id: rider.id,
@@ -98,13 +113,14 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.cover,
                 ),
-                child: const Icon(Icons.two_wheeler, color: Color(0xFF10B981), size: 38),
               ),
               const SizedBox(height: 20),
               const Text(
@@ -120,7 +136,7 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                 'Authorized login for verified local dispatch riders.',
                 style: TextStyle(color: Colors.white60, fontSize: 13),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
@@ -136,10 +152,26 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'Demo pre-seeded numbers: 9876543210, 9876543211, 9876543212, 9876543213',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF10B981)),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.white60,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF1E293B),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
               const SizedBox(height: 24),
               SizedBox(

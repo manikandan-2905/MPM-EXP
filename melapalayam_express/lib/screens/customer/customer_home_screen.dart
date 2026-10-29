@@ -33,23 +33,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Timer? _pollingTimer;
 
   // Contact Inputs (Stored Locally)
-  final TextEditingController _primaryPhoneCtrl = TextEditingController(text: '9876543210');
+  final TextEditingController _primaryPhoneCtrl = TextEditingController();
   final TextEditingController _pickupPhoneCtrl = TextEditingController();
   final TextEditingController _dropPhoneCtrl = TextEditingController();
 
   // Pickup & Drop Inputs
-  final TextEditingController _pickupAddressCtrl =
-      TextEditingController(text: 'Periya Theru, Near Big Mosque, Melapalayam');
-  final TextEditingController _dropAddressCtrl =
-      TextEditingController(text: 'Melapalayam Bazaar Market');
+  final TextEditingController _pickupAddressCtrl = TextEditingController();
+  final TextEditingController _dropAddressCtrl = TextEditingController();
 
   // Buy For Me Inputs
-  final TextEditingController _buyShopCtrl =
-      TextEditingController(text: 'Bazaar Mutton Stall, Periya Theru');
-  final TextEditingController _buyListCtrl = TextEditingController(
-      text: '1) 1/2 Kg Fresh Mutton (Leg piece curry cut)\n2) 2 Lemons');
-  final TextEditingController _buyDropCtrl =
-      TextEditingController(text: 'Hameempuram 4th Street, Melapalayam');
+  final TextEditingController _buyShopCtrl = TextEditingController();
+  final TextEditingController _buyListCtrl = TextEditingController();
+  final TextEditingController _buyDropCtrl = TextEditingController();
 
   // Custom Item Input
   final TextEditingController _customItemCtrl = TextEditingController();
@@ -72,7 +67,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // Rider View State
   bool _isRiderLoggedIn = false;
   RiderModel? _loggedInRider;
-  final TextEditingController _riderLoginPhoneCtrl = TextEditingController(text: '9363302266');
+  final TextEditingController _riderLoginPhoneCtrl = TextEditingController();
+  final TextEditingController _riderLoginPasswordCtrl = TextEditingController();
+  bool _obscureRiderPassword = true;
+  DateTime? _lastShieldTap;
   bool _isRiderOnline = true;
   bool _isRiderLoading = false;
   List<OrderModel> _riderPoolOrders = [];
@@ -119,10 +117,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _loadStoredPreferences() async {
-    final profile = await PreferencesService.getCustomerProfile();
-    if (profile['phone'] != null && profile['phone']!.isNotEmpty) {
-      _primaryPhoneCtrl.text = profile['phone']!;
-    }
+    // Keep primary phone empty by default unless user inputs it
     _syncPhoneCheckboxes();
 
     final riderSession = await PreferencesService.getRiderSession();
@@ -137,43 +132,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       } catch (_) {}
     }
 
+    // Load only real completed trips (no fake/sample trips)
     final savedTrips = await PreferencesService.getRiderCompletedTrips();
-    if (savedTrips.isNotEmpty) {
-      try {
-        setState(() {
-          _riderCompletedTrips = savedTrips
-              .map((str) => jsonDecode(str) as Map<String, dynamic>)
-              .toList();
-        });
-      } catch (_) {}
-    } else {
-      final sampleTrips = [
-        {
-          'orderNumber': 'MPM-261028-4102',
-          'items': '1/2 Kg Fresh Mutton (Leg piece curry cut)',
-          'pickup': 'Bazaar Mutton Stall, Periya Theru',
-          'drop': 'Hameempuram 4th Street, Melapalayam',
-          'fare': 45,
-          'paymentMode': 'Cash',
-          'completedAt': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-        },
-        {
-          'orderNumber': 'MPM-261027-1892',
-          'items': 'Medicines & Documents envelope',
-          'pickup': 'Kurichi Medicals, Main Road',
-          'drop': 'Al Ameen School Road, Melapalayam',
-          'fare': 30,
-          'paymentMode': 'UPI',
-          'completedAt': DateTime.now().subtract(const Duration(days: 1, hours: 3)).toIso8601String(),
-        },
-      ];
-      setState(() {
-        _riderCompletedTrips = sampleTrips;
-      });
-      for (final t in sampleTrips) {
-        PreferencesService.saveRiderCompletedTrip(jsonEncode(t));
-      }
-    }
+    final realTrips = savedTrips
+        .map((str) {
+          try {
+            return jsonDecode(str) as Map<String, dynamic>;
+          } catch (_) {
+            return null;
+          }
+        })
+        .where((t) =>
+            t != null &&
+            t['orderNumber'] != 'MPM-261028-4102' &&
+            t['orderNumber'] != 'MPM-261027-1892')
+        .cast<Map<String, dynamic>>()
+        .toList();
+
+    setState(() {
+      _riderCompletedTrips = realTrips;
+    });
 
     // Recover Customer and Rider active orders on launch
     await _recoverCustomerActiveOrder();
@@ -340,11 +318,85 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   Future<void> _placeCustomerOrder() async {
     final phone = _primaryPhoneCtrl.text.trim();
-    if (phone.isEmpty) {
+    final pickupPhone = _pickupPhoneCtrl.text.trim();
+    final dropPhone = _dropPhoneCtrl.text.trim();
+
+    // 1. Phone number validation (at least one valid 10-digit number is mandatory)
+    final effectivePhone = phone.isNotEmpty ? phone : (pickupPhone.isNotEmpty ? pickupPhone : dropPhone);
+    if (effectivePhone.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter primary contact number')),
+        const SnackBar(
+          content: Text('⚠️ Please enter a valid 10-digit Phone Number (கைபேசி எண் உள்ளிடவும்)'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
       return;
+    }
+
+    final isBuy = _activeTab == 'buy';
+
+    // 2. Validate Pickup & Drop required fields
+    if (!isBuy) {
+      if (_pickupAddressCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please enter Pickup Address (பொருளை எடுக்கும் இடம் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      if (_dropAddressCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please enter Drop Address (பொருளை சேர்க்கும் இடம் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      if (_selectedCategory == 'Custom' && _customItemCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please enter Item Details (பொருட்கள் விபரம் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+    } else {
+      // 3. Validate Buy For Me required fields
+      if (_buyShopCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please enter Shop Name / Location (கடை பெயர் / இடம் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      if (_buyListCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please enter Items to Buy (வாங்க வேண்டிய பொருட்கள் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      if (_buyDropCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please enter Delivery Address (சேர்க்க வேண்டிய இடம் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isPlacingOrder = true);
@@ -357,27 +409,24 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         token = null;
       }
 
-      final isBuy = _activeTab == 'buy';
       final itemDesc = isBuy
-          ? (_buyListCtrl.text.trim().isNotEmpty
-              ? _buyListCtrl.text.trim().split('\n').first
-              : 'Market Items')
+          ? _buyListCtrl.text.trim()
           : (_selectedCategory == 'Custom'
               ? _customItemCtrl.text.trim()
               : _selectedCategoryLabel);
 
       final pickupLoc = isBuy
-          ? (_buyShopCtrl.text.trim().isNotEmpty ? _buyShopCtrl.text.trim() : 'Bazaar Stall, Melapalayam')
+          ? _buyShopCtrl.text.trim()
           : _pickupAddressCtrl.text.trim();
 
       final dropLoc = isBuy ? _buyDropCtrl.text.trim() : _dropAddressCtrl.text.trim();
       final fare = _calculateFare();
 
       final payload = {
-        'customerName': 'Customer ($phone)',
-        'customerPhone': phone,
-        'pickupPhone': _pickupPhoneCtrl.text.trim().isNotEmpty ? _pickupPhoneCtrl.text.trim() : phone,
-        'dropPhone': _dropPhoneCtrl.text.trim().isNotEmpty ? _dropPhoneCtrl.text.trim() : phone,
+        'customerName': 'Customer ($effectivePhone)',
+        'customerPhone': effectivePhone,
+        'pickupPhone': pickupPhone.isNotEmpty ? pickupPhone : effectivePhone,
+        'dropPhone': dropPhone.isNotEmpty ? dropPhone : effectivePhone,
         'orderType': isBuy ? 'BUY_FOR_ME' : 'PICKUP_DROP',
         'category': _selectedCategory,
         'itemsList': [itemDesc],
@@ -393,7 +442,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       final result = await _apiService.createOrder(payload);
       final order = result['order'] as OrderModel;
 
-      await PreferencesService.saveCustomerProfile('Customer', phone);
+      await PreferencesService.saveCustomerProfile('Customer', effectivePhone);
       await PreferencesService.saveCustomerActiveOrderId(order.id);
 
       setState(() {
@@ -458,12 +507,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   Future<void> _loginRider() async {
     final phone = _riderLoginPhoneCtrl.text.trim();
+    final password = _riderLoginPasswordCtrl.text.trim();
     if (phone.isEmpty) return;
+
+    if (password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter rider password (last 5 digits of mobile)')),
+      );
+      return;
+    }
 
     setState(() => _isRiderLoading = true);
     try {
       final token = await NotificationService().getCachedOrFreshToken();
-      final rider = await _apiService.loginRider(phone, fcmToken: token);
+      final rider = await _apiService.loginRider(phone, password: password, fcmToken: token);
 
       await PreferencesService.saveRiderSession(id: rider.id, name: rider.name, phone: rider.phone);
 
@@ -608,6 +665,54 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     });
   }
 
+  // Real-time Today Rider Metrics (Orders count, Cash collected, UPI collected)
+  int get _todayOrdersCount {
+    final now = DateTime.now();
+    return _riderCompletedTrips.where((t) {
+      final dtStr = t['completedAt'] as String?;
+      if (dtStr == null) return false;
+      final dt = DateTime.tryParse(dtStr);
+      if (dt == null) return false;
+      return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    }).length;
+  }
+
+  int get _todayCashTotal {
+    final now = DateTime.now();
+    int total = 0;
+    for (final t in _riderCompletedTrips) {
+      final dtStr = t['completedAt'] as String?;
+      if (dtStr == null) continue;
+      final dt = DateTime.tryParse(dtStr);
+      if (dt == null) continue;
+      if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+        final mode = (t['paymentMode'] ?? 'Cash').toString().toUpperCase();
+        if (mode == 'CASH') {
+          total += ((t['fare'] ?? 0) as num).toInt();
+        }
+      }
+    }
+    return total;
+  }
+
+  int get _todayUpiTotal {
+    final now = DateTime.now();
+    int total = 0;
+    for (final t in _riderCompletedTrips) {
+      final dtStr = t['completedAt'] as String?;
+      if (dtStr == null) continue;
+      final dt = DateTime.tryParse(dtStr);
+      if (dt == null) continue;
+      if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
+        final mode = (t['paymentMode'] ?? '').toString().toUpperCase();
+        if (mode == 'UPI') {
+          total += ((t['fare'] ?? 0) as num).toInt();
+        }
+      }
+    }
+    return total;
+  }
+
   Map<String, List<Map<String, dynamic>>> _groupTripsByDate(List<Map<String, dynamic>> trips) {
     final Map<String, List<Map<String, dynamic>>> grouped = {};
     final now = DateTime.now();
@@ -664,14 +769,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // ==========================================
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // slate-50
-      body: SafeArea(
-        child: Stack(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFFF8FAFC),
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: Stack(
           children: [
             if (_currentViewMode == 'customer') _buildCustomerView(),
             if (_currentViewMode == 'rider') _buildRiderView(),
-            if (_currentViewMode == 'inspector') _buildStateInspectorView(),
+            if (_currentViewMode == 'inspector') SafeArea(child: _buildStateInspectorView()),
 
             // Notification Center Drawer Popup
             if (_showNotificationDrawer && _currentViewMode == 'customer')
@@ -688,8 +800,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   // Notification Center Drawer Popup (from Prototype)
   Widget _buildNotificationDrawer() {
+    final topOffset = MediaQuery.of(context).padding.top + 74;
     return Positioned(
-      top: 90,
+      top: topOffset,
       left: 16,
       right: 16,
       child: Material(
@@ -864,19 +977,24 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+          padding: EdgeInsets.fromLTRB(18, MediaQuery.of(context).padding.top + 30, 18, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Container(
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: 42,
+                          height: 42,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
@@ -891,44 +1009,53 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 7),
-                          const Text(
-                            'MPM Express',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.2),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF76C457),
-                              borderRadius: BorderRadius.circular(9999),
-                            ),
-                            child: const Text(
-                              'மேலப்பாளையம்',
-                              style: TextStyle(color: Color(0xFF0F172A), fontSize: 9.5, fontWeight: FontWeight.w900),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF76C457),
-                            ),
+                          Row(
+                            children: [
+                              const Text(
+                                'MPM Express',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.2),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF76C457),
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                                child: const Text(
+                                  'மேலப்பாளையம்',
+                                  style: TextStyle(color: Color(0xFF0F172A), fontSize: 9.5, fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$_activeRidersCount Riders Available on duty',
-                            style: const TextStyle(
-                              color: Color(0xFFA7DF92),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                            ),
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF76C457),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '$_activeRidersCount Riders Available on duty',
+                                style: const TextStyle(
+                                  color: Color(0xFFA7DF92),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -982,9 +1109,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       const SizedBox(width: 8),
 
-                      // Discreet Rider Access Trigger
+                      // Discreet Rider Access Trigger (requires 2 continuous taps to open)
                       GestureDetector(
-                        onTap: () => setState(() => _currentViewMode = 'rider'),
+                        onTap: () {
+                          final now = DateTime.now();
+                          if (_lastShieldTap != null &&
+                              now.difference(_lastShieldTap!) < const Duration(milliseconds: 700)) {
+                            _lastShieldTap = null;
+                            setState(() => _currentViewMode = 'rider');
+                          } else {
+                            _lastShieldTap = now;
+                          }
+                        },
+                        onDoubleTap: () => setState(() => _currentViewMode = 'rider'),
                         child: Container(
                           width: 36,
                           height: 36,
@@ -1193,7 +1330,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  // Contact Phone Card
+  // Contact Phone Card (Reverted to White Background UI)
   Widget _buildContactPhoneCard() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1257,6 +1394,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F172A), fontSize: 12),
                     decoration: const InputDecoration(
                       hintText: '10-digit mobile number',
+                      hintStyle: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                       border: InputBorder.none,
                       counterText: '',
                       isDense: true,
@@ -1455,7 +1593,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 TextField(
                   controller: _customItemCtrl,
                   style: const TextStyle(fontSize: 12),
-                  decoration: _cleanInputDecoration('Specify item details...'),
+                  decoration: _cleanInputDecoration('Specify item details (பொருள் விபரங்கள்)...'),
                 ),
               ],
             ],
@@ -1491,7 +1629,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       const SizedBox(width: 6),
                       const Text(
-                        'PICKUP ADDRESS',
+                        'PICKUP ADDRESS (பொருளை எடுக்கும் இடம்)',
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5, color: Color(0xFF334155)),
                       ),
                     ],
@@ -1509,7 +1647,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         children: const [
                           Icon(Icons.location_searching, size: 10, color: Color(0xFF3A642B)),
                           SizedBox(width: 4),
-                          Text('Use GPS', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
+                          Text('Use GPS ', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
                         ],
                       ),
                     ),
@@ -1520,7 +1658,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               TextField(
                 controller: _pickupAddressCtrl,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                decoration: _cleanInputDecoration('Street, Door No, or Landmark'),
+                decoration: _cleanInputDecoration('e.g. Periya Theru, Near Big Mosque, Melapalayam'),
               ),
             ],
           ),
@@ -1555,7 +1693,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       const SizedBox(width: 6),
                       const Text(
-                        'DROP ADDRESS',
+                        'DROP ADDRESS (பொருளை சேர்க்கும் இடம்)',
                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 10.5, color: Color(0xFF334155)),
                       ),
                     ],
@@ -1573,7 +1711,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         children: const [
                           Icon(Icons.location_searching, size: 10, color: Color(0xFF3A642B)),
                           SizedBox(width: 4),
-                          Text('Use GPS', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
+                          Text('Use GPS ', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
                         ],
                       ),
                     ),
@@ -1584,7 +1722,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               TextField(
                 controller: _dropAddressCtrl,
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                decoration: _cleanInputDecoration('Destination street or landmark'),
+                decoration: _cleanInputDecoration('e.g. Melapalayam Bazaar Market'),
                 onChanged: (_) => setState(() {}),
               ),
 
@@ -1633,7 +1771,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('SHOP / STALL NAME (கடை பெயர்)',
+          const Text('SHOP / STALL NAME (கடை பெயர் / இடம்)',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
           const SizedBox(height: 4),
           TextField(
@@ -1642,23 +1780,23 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             decoration: _cleanInputDecoration('e.g. Bazaar Mutton Stall, Periya Theru'),
           ),
           const SizedBox(height: 10),
-          const Text('REQUIRED ITEMS & CUT SPECS (பொருட்கள் விபரம்)',
+          const Text('ITEMS TO BUY (வாங்க வேண்டிய பொருட்கள்)',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
           const SizedBox(height: 4),
           TextField(
             controller: _buyListCtrl,
             maxLines: 2,
             style: const TextStyle(fontSize: 12),
-            decoration: _cleanInputDecoration('1) 1/2 Kg Fresh Mutton (Leg piece curry cut)\n2) 2 Lemons'),
+            decoration: _cleanInputDecoration('e.g. 1) 1/2 Kg Fresh Mutton (Leg piece curry cut)\n2) 2 Lemons'),
           ),
           const SizedBox(height: 10),
-          const Text('DELIVER TO ADDRESS (டெலிவரி இடம்)',
+          const Text('DELIVERY ADDRESS (சேர்க்க வேண்டிய இடம்)',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
           const SizedBox(height: 4),
           TextField(
             controller: _buyDropCtrl,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            decoration: _cleanInputDecoration('Hameempuram 4th Street, Melapalayam'),
+            decoration: _cleanInputDecoration('e.g. Hameempuram 4th Street, Melapalayam'),
             onChanged: (_) => setState(() {}),
           ),
           if (_isCrossZone) ...[
@@ -1763,7 +1901,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('DELIVERY CHARGE',
+                  const Text('DELIVERY CHARGE ',
                       style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w800, fontSize: 9.5, letterSpacing: 1.2)),
                   const SizedBox(height: 2),
                   Row(
@@ -1830,7 +1968,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
                   : const Icon(Icons.delivery_dining_rounded, size: 20),
               label: Text(
-                _isPlacingOrder ? 'Placing Order...' : 'Confirm & Place Order 🛵',
+                _isPlacingOrder ? 'Placing Order...' : 'Confirm & Place Order  🛵',
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
               ),
               onPressed: _isPlacingOrder ? null : _placeCustomerOrder,
@@ -2270,27 +2408,34 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Widget _buildRiderLoginView() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      color: const Color(0xFFF8FAFC),
-      child: Column(
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        color: const Color(0xFFF8FAFC),
+        child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 68,
-            height: 68,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF5DA441), Color(0xFF76C457), Color(0xFFBEF264)],
-                begin: Alignment.bottomLeft,
-                end: Alignment.topRight,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/logo.png',
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, err, stack) => Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF5DA441), Color(0xFF76C457), Color(0xFFBEF264)],
+                    begin: Alignment.bottomLeft,
+                    end: Alignment.topRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.two_wheeler_rounded, size: 34, color: Color(0xFF0F172A)),
               ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFF76C457).withOpacity(0.45), blurRadius: 20, offset: const Offset(0, 6)),
-              ],
             ),
-            child: const Icon(Icons.two_wheeler_rounded, size: 34, color: Color(0xFF0F172A)),
           ),
           const SizedBox(height: 12),
           const Text('Rider Partner Portal', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0F172A))),
@@ -2309,17 +2454,34 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('PRE-REGISTERED PHONE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+                const Text('REGISTERED PHONE (பதிவுசெய்த கைபேசி எண்)',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _riderLoginPhoneCtrl,
                   keyboardType: TextInputType.phone,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  decoration: _cleanInputDecoration('Enter registered rider phone'),
+                  decoration: _cleanInputDecoration('e.g. 9363302266'),
                 ),
-                const SizedBox(height: 4),
-                const Text('Pre-seeded accounts: Peer Mohamed (9845012345), Sudalai (9363302266)',
-                    style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                const SizedBox(height: 12),
+                const Text('RIDER PASSWORD (கடவுச்சொல் - கடைசி 5 எண்கள்)',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _riderLoginPasswordCtrl,
+                  obscureText: _obscureRiderPassword,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  decoration: _cleanInputDecoration('').copyWith(
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureRiderPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                        size: 18,
+                        color: const Color(0xFF64748B),
+                      ),
+                      onPressed: () => setState(() => _obscureRiderPassword = !_obscureRiderPassword),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -2351,7 +2513,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildRiderDashboardView() {
@@ -2375,7 +2538,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 26, 16, 20),
           child: Column(
             children: [
               // Top Navigation Row
@@ -2478,26 +2641,27 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // 4 Quick Metrics / Info Cards
+              // 4 Quick Metrics / Info Cards (Real-time data based on today's deliveries)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildRiderHeaderBadge(
-                    icon: Icons.two_wheeler_outlined,
-                    title: 'Vehicle',
-                    subtitle: 'Splendor',
-                  ),
-                  _buildRiderHeaderBadge(
-                    icon: Icons.star_rounded,
-                    title: 'Rating',
-                    subtitle: '4.9 ★',
-                    iconColor: Colors.amber,
-                  ),
-                  _buildRiderHeaderBadge(
-                    icon: Icons.account_balance_wallet_outlined,
-                    title: 'Earned',
-                    subtitle: '₹${_loggedInRider?.totalEarnings ?? 245}',
+                    icon: Icons.inventory_2_outlined,
+                    title: 'Today Orders',
+                    subtitle: '$_todayOrdersCount',
                     iconColor: const Color(0xFF76C457),
+                  ),
+                  _buildRiderHeaderBadge(
+                    icon: Icons.payments_outlined,
+                    title: 'Today Cash',
+                    subtitle: '₹$_todayCashTotal',
+                    iconColor: const Color(0xFF38BDF8),
+                  ),
+                  _buildRiderHeaderBadge(
+                    icon: Icons.qr_code_2_rounded,
+                    title: 'Today UPI',
+                    subtitle: '₹$_todayUpiTotal',
+                    iconColor: const Color(0xFFA78BFA),
                   ),
                   GestureDetector(
                     onTap: () => _toggleRiderOnline(!_isRiderOnline),

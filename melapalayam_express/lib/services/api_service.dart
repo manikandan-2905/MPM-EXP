@@ -126,12 +126,16 @@ class ApiService {
     }
   }
 
-  // 6. Rider Login (Pre-seeded phone check)
-  Future<RiderModel> loginRider(String phone, {String? fcmToken}) async {
+  // 6. Rider Login (Pre-seeded phone & password check)
+  Future<RiderModel> loginRider(String phone, {String? password, String? fcmToken}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/riders/login'),
       headers: _headers,
-      body: jsonEncode({'phone': phone, 'fcmToken': fcmToken}),
+      body: jsonEncode({
+        'phone': phone,
+        if (password != null) 'password': password,
+        'fcmToken': fcmToken,
+      }),
     );
 
     final data = jsonDecode(response.body);

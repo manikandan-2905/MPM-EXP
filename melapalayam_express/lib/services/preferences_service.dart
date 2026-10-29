@@ -116,5 +116,10 @@ class PreferencesService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList('mpm_rider_completed_trips') ?? [];
   }
+
+  static Future<void> clearRiderCompletedTrips() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('mpm_rider_completed_trips');
+  }
 }
 

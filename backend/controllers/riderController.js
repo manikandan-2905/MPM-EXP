@@ -1,13 +1,17 @@
 const Rider = require('../models/Rider');
 const Order = require('../models/Order');
 
-// 1. Rider Login (Pre-seeded phone authentication)
+// 1. Rider Login (Pre-seeded phone & password authentication)
 exports.loginRider = async (req, res) => {
   try {
-    const { phone, fcmToken } = req.body;
+    const { phone, password, fcmToken } = req.body;
 
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Password is required' });
     }
 
     const cleanPhone = phone.trim();
@@ -17,6 +21,14 @@ exports.loginRider = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Access Denied: Phone number not found in Melapalayam authorized riders list.',
+      });
+    }
+
+    const expectedPassword = rider.password || rider.phone.slice(-5);
+    if (password.trim() !== expectedPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect password. Password is the last 5 digits of your registered phone number.',
       });
     }
 

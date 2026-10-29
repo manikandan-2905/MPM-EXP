@@ -29,6 +29,10 @@ const riderSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    password: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

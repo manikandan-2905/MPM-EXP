@@ -7,38 +7,69 @@ const sampleRiders = [
   {
     name: 'Sudalai',
     phone: '9363302266',
+    password: '02266',
     isOnline: false,
-    totalDeliveries: 42,
-    totalEarnings: 1890,
+    totalDeliveries: 0,
+    totalEarnings: 0,
   },
   {
-    name: 'Syed Ibrahim',
-    phone: '9876543211',
+    name: 'Mani',
+    phone: '7639482476',
+    password: '82476',
     isOnline: false,
-    totalDeliveries: 31,
-    totalEarnings: 1420,
+    totalDeliveries: 0,
+    totalEarnings: 0,
   },
   {
-    name: 'Abdul Rahman',
-    phone: '9876543212',
+    name: 'Mani',
+    phone: '6379329930',
+    password: '29930',
     isOnline: false,
-    totalDeliveries: 19,
-    totalEarnings: 850,
+    totalDeliveries: 0,
+    totalEarnings: 0,
   },
   {
-    name: 'Sheik Dawood',
-    phone: '9876543213',
-    isOnline: true,
-    totalDeliveries: 55,
-    totalEarnings: 2450,
+    name: 'Hari',
+    phone: '9344590818',
+    password: '50818',
+    isOnline: false,
+    totalDeliveries: 0,
+    totalEarnings: 0,
+  },
+  {
+    name: 'Mathan',
+    phone: '9791766183',
+    password: '76183',
+    isOnline: false,
+    totalDeliveries: 0,
+    totalEarnings: 0,
+  },
+  {
+    name: 'Santhanam',
+    phone: '7010710215',
+    password: '10215',
+    isOnline: false,
+    totalDeliveries: 0,
+    totalEarnings: 0,
+  },
+  {
+    name: 'RAJA',
+    phone: '7695807394',
+    password: '07394',
+    isOnline: false,
+    totalDeliveries: 0,
+    totalEarnings: 0,
   },
 ];
 
 const seedRiders = async () => {
   try {
     await connectDB();
-    console.log('[Seed]: Clearing existing rider test data...');
+    console.log('[Seed]: Upserting authorized rider data with last-5-digit passwords...');
     for (const r of sampleRiders) {
+      if (!r.password) {
+        r.password = r.phone.slice(-5);
+      }
       await Rider.findOneAndUpdate({ phone: r.phone }, r, { upsert: true, new: true });
     }
     console.log(`[Seed]: Successfully pre-seeded ${sampleRiders.length} authorized riders in Melapalayam!`);

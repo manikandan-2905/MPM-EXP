@@ -160,16 +160,30 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text(
-              _rider?.name ?? widget.initialName,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/logo.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+              ),
             ),
-            const Text(
-              'Melapalayam Dispatch Rider',
-              style: TextStyle(color: Colors.white60, fontSize: 11),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _rider?.name ?? widget.initialName,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const Text(
+                  'Melapalayam Dispatch Rider',
+                  style: TextStyle(color: Colors.white60, fontSize: 11),
+                ),
+              ],
             ),
           ],
         ),
