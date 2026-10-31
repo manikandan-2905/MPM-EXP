@@ -41,7 +41,7 @@ class ApiService {
         return (data['activeRidersCount'] as num).toInt();
       }
     } catch (e) {}
-    return 1; // Real database baseline is 1 online rider (MS Mani)
+    return 0; // Default to 0 when no riders are actively online in DB
   }
 
   // 2. Create Order (Guest Customer & Testing)
@@ -687,7 +687,7 @@ class ApiService {
     final sampleFleet = [
       {'id': 'r_sudalai', 'name': 'Sudalai', 'phone': '9363302266', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': '6ae34ea6ed8921437ffd42da', 'name': 'V Mani', 'phone': '7639483476', 'isOnline': false, 'totalDeliveries': 3, 'totalEarnings': 105},
-      {'id': '6ae34ea6ed8921437ffd42db', 'name': 'MS Mani', 'phone': '6379329930', 'isOnline': true, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': '6ae34ea6ed8921437ffd42db', 'name': 'MS Mani', 'phone': '6379329930', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': 'r_hari', 'name': 'Hari', 'phone': '9344590818', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': 'r_mathan', 'name': 'Mathan', 'phone': '9791766183', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': 'r_santhanam', 'name': 'Santhanam', 'phone': '7010710215', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},

@@ -31,7 +31,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   // Customer Form State
   String _activeTab = 'pickup'; // 'pickup' | 'buy'
-  int _activeRidersCount = 1;
+  int _activeRidersCount = 0;
   bool _isLoadingRiders = false;
   Timer? _pollingTimer;
 
@@ -1824,16 +1824,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               Container(
                                 width: 6,
                                 height: 6,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFF76C457),
+                                  color: _activeRidersCount > 0 ? const Color(0xFF76C457) : const Color(0xFF94A3B8),
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '$_activeRidersCount Riders Available on duty',
-                                style: const TextStyle(
-                                  color: Color(0xFFA7DF92),
+                                _activeRidersCount > 0
+                                    ? '$_activeRidersCount ${_activeRidersCount == 1 ? 'Rider' : 'Riders'} Available on duty'
+                                    : '0 Riders Online (Pool Standby)',
+                                style: TextStyle(
+                                  color: _activeRidersCount > 0 ? const Color(0xFFA7DF92) : Colors.white70,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 11,
                                 ),
@@ -1966,11 +1968,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 const SizedBox(height: 12),
               ],
 
-              // Legal Warning Card (Amber)
-              const LegalWarningBanner(),
-
-              const SizedBox(height: 12),
-
               // Contact Phone Card (Stored Locally)
               _buildContactPhoneCard(),
 
@@ -1987,8 +1984,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
               const SizedBox(height: 14),
 
-              // Modern Fare Engine & Action Button Bar
+              // Modern Fare Engine & Action Button Bar (Payment Card)
               _buildFareEngineActionCard(),
+
+              const SizedBox(height: 14),
+
+              // Safety Legal Warning Banner (Amber) - Moved below payment card
+              const LegalWarningBanner(),
 
               const SizedBox(height: 24),
             ],

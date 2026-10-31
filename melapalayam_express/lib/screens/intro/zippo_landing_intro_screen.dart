@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../customer/customer_home_screen.dart';
 
 class ZippoLandingIntroScreen extends StatefulWidget {
-  const ZippoLandingIntroScreen({Key? key}) : super(key: key);
+  const ZippoLandingIntroScreen({super.key});
 
   @override
   State<ZippoLandingIntroScreen> createState() => _ZippoLandingIntroScreenState();
@@ -12,63 +12,135 @@ class ZippoLandingIntroScreen extends StatefulWidget {
 
 class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
     with TickerProviderStateMixin {
-  // Phase controllers
-  late AnimationController _logoPhaseController;
+  // Scooter & movement controllers
   late AnimationController _bikeController;
   late AnimationController _engineBobController;
   late AnimationController _wheelSpinController;
 
-  // Letter reveal controllers
+  // Letter reveal controllers (Z - I - P - P - O)
   late List<AnimationController> _letterControllers;
 
-  // Tamil badge controller
+  // 6 Small Goods Pills reveal controllers
+  late List<AnimationController> _pillControllers;
+
+  // Melapalayam Tamil badge controller
   late AnimationController _tamilBadgeController;
 
   // Master fade out / exit controller
   late AnimationController _exitController;
 
-  bool _isLogoPhase = true;
   bool _hasNavigated = false;
-  String _statusText = "Calibrating Melapalayam delivery routes...";
-  double _progressValue = 0.2;
+  String _statusText = "ZIPPO rider cruising across Melapalayam...";
+  double _progressValue = 0.05;
 
+  // Letters Data: Z - I - P - P - O
   final List<Map<String, dynamic>> _lettersData = [
     {'char': 'Z', 'desc': 'Zero Wait', 'isGreen': false, 'trigger': 0.12},
     {'char': 'I', 'desc': 'Instant', 'isGreen': true, 'trigger': 0.32},
     {'char': 'P', 'desc': 'Pickup', 'isGreen': false, 'trigger': 0.52},
     {'char': 'P', 'desc': 'Parcel', 'isGreen': false, 'trigger': 0.72},
-    {'char': 'O', 'desc': 'On-Demand', 'isGreen': true, 'trigger': 0.90},
+    {'char': 'O', 'desc': 'On-Demand', 'isGreen': true, 'trigger': 0.88},
+  ];
+
+  // 6 Light Pastel Goods Pills Data (revealed one by one as scooter moves)
+  final List<Map<String, dynamic>> _pillsData = [
+    {
+      'icon': Icons.inventory_2_outlined,
+      'label': 'Parcel',
+      'bg': const Color(0xFFFFF7ED), // Light orange pastel
+      'textColor': const Color(0xFF9A3412),
+      'borderColor': const Color(0xFFFFEDD5),
+      'trigger': 0.08,
+      'topFactor': 0.16,
+      'left': 22.0,
+      'right': null,
+      'bottom': null,
+    },
+    {
+      'icon': Icons.restaurant_rounded,
+      'label': 'Food & Meat',
+      'bg': const Color(0xFFF0FDF4), // Light green pastel
+      'textColor': const Color(0xFF166534),
+      'borderColor': const Color(0xFFDCFCE7),
+      'trigger': 0.24,
+      'topFactor': 0.24,
+      'left': null,
+      'right': 22.0,
+      'bottom': null,
+    },
+    {
+      'icon': Icons.medication_outlined,
+      'label': 'Medicine',
+      'bg': const Color(0xFFF0F9FF), // Light sky blue pastel
+      'textColor': const Color(0xFF0369A1),
+      'borderColor': const Color(0xFFE0F2FE),
+      'trigger': 0.40,
+      'topFactor': 0.14,
+      'left': null,
+      'right': 30.0,
+      'bottom': null,
+    },
+    {
+      'icon': Icons.vpn_key_outlined,
+      'label': 'Urgent Keys',
+      'bg': const Color(0xFFFAF5FF), // Light purple pastel
+      'textColor': const Color(0xFF7E22CE),
+      'borderColor': const Color(0xFFF3E8FF),
+      'trigger': 0.56,
+      'topFactor': null,
+      'left': 26.0,
+      'right': null,
+      'bottom': 135.0,
+    },
+    {
+      'icon': Icons.two_wheeler_rounded,
+      'label': 'Bike Lift',
+      'bg': const Color(0xFFECFDF5), // Light emerald pastel
+      'textColor': const Color(0xFF065F46),
+      'borderColor': const Color(0xFFD1FAE5),
+      'trigger': 0.72,
+      'topFactor': null,
+      'left': null,
+      'right': 26.0,
+      'bottom': 140.0,
+    },
+    {
+      'icon': Icons.shopping_bag_outlined,
+      'label': 'Bazaar Goods',
+      'bg': const Color(0xFFFFFBEB), // Light amber pastel
+      'textColor': const Color(0xFF92400E),
+      'borderColor': const Color(0xFFFEF3C7),
+      'trigger': 0.86,
+      'topFactor': 0.28,
+      'left': 18.0,
+      'right': null,
+      'bottom': null,
+    },
   ];
 
   @override
   void initState() {
     super.initState();
 
-    // 1. Initial Logo Phase
-    _logoPhaseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-
-    // 2. Bike Travel (Left to Right)
+    // 1. Slow & Gentle Bike Movement (3800 ms duration so the journey is smooth and readable)
     _bikeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
+      duration: const Duration(milliseconds: 3800),
     );
 
-    // 3. Engine Bob (subtle suspension vibration)
+    // 2. Engine Bob (gentle suspension bob)
     _engineBobController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 240),
     )..repeat(reverse: true);
 
-    // 4. Wheel Spin
+    // 3. Wheel Spin
     _wheelSpinController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 320),
     )..repeat();
 
-    // 5. Letter controllers
+    // 4. Letter reveal controllers (5 letters)
     _letterControllers = List.generate(
       5,
       (index) => AnimationController(
@@ -77,7 +149,16 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
       ),
     );
 
-    // 6. Tamil Tag
+    // 5. 6 Small Goods Pills reveal controllers
+    _pillControllers = List.generate(
+      6,
+      (index) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 600),
+      ),
+    );
+
+    // 6. Tamil Badge
     _tamilBadgeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -89,49 +170,54 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
       duration: const Duration(milliseconds: 600),
     );
 
-    // Listen to bike movement to trigger letters sequentially as the scooter passes them
+    // Listen to scooter progress to trigger letters and pills sequentially
     _bikeController.addListener(_onBikeProgress);
 
-    // Kick off animation sequence
-    _startAnimationTimeline();
+    // Start immediately without any initial card
+    _startAnimationSequence();
   }
 
   void _onBikeProgress() {
     final progress = _bikeController.value;
 
     setState(() {
-      _progressValue = 0.25 + (progress * 0.75);
+      _progressValue = progress;
     });
 
+    // 1. Reveal letters as scooter passes each letter position
     for (int i = 0; i < _lettersData.length; i++) {
       final triggerPoint = _lettersData[i]['trigger'] as double;
-      if (progress >= triggerPoint && !_letterControllers[i].isCompleted && !_letterControllers[i].isAnimating) {
+      if (progress >= triggerPoint &&
+          !_letterControllers[i].isCompleted &&
+          !_letterControllers[i].isAnimating) {
         _letterControllers[i].forward();
         HapticFeedback.lightImpact();
       }
     }
 
-    // When approaching the last letter, trigger the Tamil badge
-    if (progress >= 0.88 && !_tamilBadgeController.isCompleted && !_tamilBadgeController.isAnimating) {
+    // 2. Reveal light pastel goods pills as scooter reaches each threshold
+    for (int i = 0; i < _pillsData.length; i++) {
+      final triggerPoint = _pillsData[i]['trigger'] as double;
+      if (progress >= triggerPoint &&
+          !_pillControllers[i].isCompleted &&
+          !_pillControllers[i].isAnimating) {
+        _pillControllers[i].forward();
+      }
+    }
+
+    // 3. Reveal Tamil Sub-Badge when approaching the end of letters
+    if (progress >= 0.88 &&
+        !_tamilBadgeController.isCompleted &&
+        !_tamilBadgeController.isAnimating) {
       _tamilBadgeController.forward();
     }
   }
 
-  Future<void> _startAnimationTimeline() async {
-    // 1. Show logo with scale/fade in
-    await _logoPhaseController.forward();
-    await Future.delayed(const Duration(milliseconds: 700));
-
+  Future<void> _startAnimationSequence() async {
+    // Very brief delay for smooth mount, then start scooter glide straightaway
+    await Future.delayed(const Duration(milliseconds: 250));
     if (!mounted) return;
 
-    // Transition from Phase 1 to Phase 2
-    setState(() {
-      _isLogoPhase = false;
-      _statusText = "ZIPPO rider cruising across Melapalayam...";
-      _progressValue = 0.35;
-    });
-
-    // Start bike gliding left to right
     await _bikeController.forward();
 
     if (!mounted) return;
@@ -141,8 +227,8 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
       _progressValue = 1.0;
     });
 
-    // Brief celebratory pause
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Brief celebratory pause at the end
+    await Future.delayed(const Duration(milliseconds: 550));
 
     if (!mounted) return;
     _navigateToHome();
@@ -174,12 +260,14 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
 
   @override
   void dispose() {
-    _logoPhaseController.dispose();
     _bikeController.removeListener(_onBikeProgress);
     _bikeController.dispose();
     _engineBobController.dispose();
     _wheelSpinController.dispose();
     for (final c in _letterControllers) {
+      c.dispose();
+    }
+    for (final c in _pillControllers) {
       c.dispose();
     }
     _tamilBadgeController.dispose();
@@ -213,38 +301,24 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
             );
           },
           child: Stack(
+            fit: StackFit.expand,
             children: [
-              // Ambient Background Glows
-              Positioned(
-                top: -80,
-                left: -80,
-                child: Container(
-                  width: 260,
-                  height: 260,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFF0FDF4).withOpacity(0.9),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -80,
-                right: -80,
-                child: Container(
-                  width: 260,
-                  height: 260,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFECFDF5).withOpacity(0.9),
-                  ),
-                ),
+              // 1. Organic Light Color Waves & Subtle Melapalayam Watermark
+              CustomPaint(
+                size: screenSize,
+                painter: _LandingCurvesAndWatermarkPainter(),
               ),
 
-              // Main Column
+              // 2. Light Pastel Goods Pills (revealed one by one as scooter moves)
+              ...List.generate(_pillsData.length, (index) {
+                return _buildAnimatedPillWidget(index, screenSize);
+              }),
+
+              // 3. Foreground Column (Top Bar, ZIPPO Letters & Runway, Progress Bar)
               SafeArea(
                 child: Column(
                   children: [
-                    // Top Bar (Status & Skip Button)
+                    // Top Bar (Melapalayam Dispatch Badge & Skip Button)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       child: Row(
@@ -253,9 +327,16 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
+                              color: Colors.white.withValues(alpha: 0.95),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: const Color(0xFFE2E8F0)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -296,12 +377,14 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                               color: Color(0xFF475569),
                             ),
                             style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFF1F5F9),
+                              backgroundColor: Colors.white.withValues(alpha: 0.9),
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                                 side: const BorderSide(color: Color(0xFFE2E8F0)),
                               ),
+                              shadowColor: Colors.black.withValues(alpha: 0.05),
+                              elevation: 1,
                             ),
                           ),
                         ],
@@ -310,15 +393,8 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
 
                     const Spacer(),
 
-                    // Stage Area (Phase 1 Logo OR Phase 2 Animated Letters + Bike)
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 400),
-                      crossFadeState: _isLogoPhase
-                          ? CrossFadeState.showFirst
-                          : CrossFadeState.showSecond,
-                      firstChild: _buildLogoPhaseWidget(),
-                      secondChild: _buildAnimatedStageWidget(screenSize),
-                    ),
+                    // Centered Stage: Letters (Z I P P O) + Tamil Badge + Scooter Runway
+                    _buildAnimatedLettersAndRunwayStage(screenSize),
 
                     const Spacer(),
 
@@ -363,85 +439,86 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
     );
   }
 
-  // Phase 1: Glowing App Logo Presentation
-  Widget _buildLogoPhaseWidget() {
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: _logoPhaseController,
-        curve: Curves.easeOut,
-      ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.85, end: 1.0).animate(
-          CurvedAnimation(
-            parent: _logoPhaseController,
-            curve: Curves.easeOutBack,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 110,
-              height: 110,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF10B981).withOpacity(0.2),
-                    blurRadius: 30,
-                    spreadRadius: 4,
-                    offset: const Offset(0, 10),
+  // Individual Light Pastel Goods Pill (Pops up gently as scooter reaches its trigger)
+  Widget _buildAnimatedPillWidget(int index, Size screenSize) {
+    final data = _pillsData[index];
+    final controller = _pillControllers[index];
+
+    final double? top = data['topFactor'] != null
+        ? screenSize.height * (data['topFactor'] as double)
+        : null;
+    final double? bottom = data['bottom'] as double?;
+    final double? left = data['left'] as double?;
+    final double? right = data['right'] as double?;
+
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          final val = controller.value;
+          final curveVal = Curves.easeOutBack.transform(val);
+          final opacity = val.clamp(0.0, 1.0);
+          final scale = 0.3 + (curveVal * 0.7);
+
+          return Opacity(
+            opacity: opacity,
+            child: Transform.scale(
+              scale: scale,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
+                decoration: BoxDecoration(
+                  color: (data['bg'] as Color).withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: data['borderColor'] as Color,
+                    width: 1.2,
                   ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 15,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(
-                  color: const Color(0xFFD1FAE5),
-                  width: 2,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      data['icon'] as IconData,
+                      size: 13.5,
+                      color: data['textColor'] as Color,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      data['label'] as String,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: data['textColor'] as Color,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Image.asset(
-                'assets/logo.png',
-                fit: BoxFit.contain,
-              ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'MELAPALAYAM HYPER-LOCAL',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.0,
-                color: Color(0xFF059669),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Starting Delivery Fleet...',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  // Phase 2: "Z I P P O" Letter Extrusion + Bike Runway
-  Widget _buildAnimatedStageWidget(Size screenSize) {
+  // Central Stage: ZIPPO Letters Row + Tamil Sub-Badge + Road Runway with Scooter
+  Widget _buildAnimatedLettersAndRunwayStage(Size screenSize) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ZIPPO Letters Row
+        // ZIPPO Letters Row (Z - I - P - P - O)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -465,7 +542,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
 
         const SizedBox(height: 24),
 
-        // Road Runway with Moving Scooter
+        // Road Runway with Scooter gliding slowly from left to right
         _buildRoadWithMovingScooter(screenSize),
       ],
     );
@@ -521,7 +598,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                               Shadow(
                                 offset: const Offset(0, 10),
                                 blurRadius: 18,
-                                color: const Color(0xFF16A34A).withOpacity(0.4),
+                                color: const Color(0xFF16A34A).withValues(alpha: 0.4),
                               ),
                             ]
                           : [
@@ -538,7 +615,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                               Shadow(
                                 offset: const Offset(0, 10),
                                 blurRadius: 18,
-                                color: Colors.black.withOpacity(0.18),
+                                color: Colors.black.withValues(alpha: 0.18),
                               ),
                             ],
                     ),
@@ -558,7 +635,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
+                          color: Colors.black.withValues(alpha: 0.03),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -617,7 +694,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                     border: Border.all(color: const Color(0xFF86EFAC)),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF10B981).withOpacity(0.12),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -706,7 +783,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
             ),
           ),
 
-          // Scooter Assembly moving left to right
+          // Scooter Assembly moving gently and slowly across the screen
           AnimatedBuilder(
             animation: Listenable.merge([
               _bikeController,
@@ -751,7 +828,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                   width: 22,
                   height: 2,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.8),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -760,7 +837,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                   width: 30,
                   height: 2,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF94A3B8).withOpacity(0.6),
+                    color: const Color(0xFF94A3B8).withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -769,7 +846,7 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                   width: 16,
                   height: 2,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF34D399).withOpacity(0.9),
+                    color: const Color(0xFF34D399).withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -790,15 +867,15 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
                 ),
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFFFDE047).withOpacity(0.6),
-                    const Color(0xFFFDE047).withOpacity(0.0),
+                    const Color(0xFFFDE047).withValues(alpha: 0.6),
+                    const Color(0xFFFDE047).withValues(alpha: 0.0),
                   ],
                 ),
               ),
             ),
           ),
 
-          // The Scooter Graphics (Vector / Logo Silhouette)
+          // The Scooter Graphics
           CustomPaint(
             size: const Size(80, 56),
             painter: _ScooterVectorPainter(wheelRotation: _wheelSpinController.value),
@@ -807,6 +884,134 @@ class _ZippoLandingIntroScreenState extends State<ZippoLandingIntroScreen>
       ),
     );
   }
+}
+
+// Custom Painter for Organic Light Curves and Subtle Melapalayam Watermark Text
+class _LandingCurvesAndWatermarkPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Gentle background curves
+    final greenCurvePaint = Paint()
+      ..color = const Color(0xFF10B981).withValues(alpha: 0.04)
+      ..style = PaintingStyle.fill;
+
+    final orangeCurvePaint = Paint()
+      ..color = const Color(0xFFF97316).withValues(alpha: 0.035)
+      ..style = PaintingStyle.fill;
+
+    // Top gentle green curve wave
+    final topPath = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height * 0.22)
+      ..quadraticBezierTo(
+        size.width * 0.65,
+        size.height * 0.28,
+        size.width * 0.35,
+        size.height * 0.18,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.15,
+        size.height * 0.10,
+        0,
+        size.height * 0.16,
+      )
+      ..close();
+    canvas.drawPath(topPath, greenCurvePaint);
+
+    // Bottom sweeping orange & green curve wave
+    final bottomPath = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width, size.height * 0.74)
+      ..quadraticBezierTo(
+        size.width * 0.75,
+        size.height * 0.82,
+        size.width * 0.45,
+        size.height * 0.76,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.18,
+        size.height * 0.70,
+        0,
+        size.height * 0.80,
+      )
+      ..close();
+    canvas.drawPath(bottomPath, orangeCurvePaint);
+
+    // Decorative curved hairline strokes
+    final strokePaint = Paint()
+      ..color = const Color(0xFF10B981).withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    final arcPath1 = Path()
+      ..moveTo(0, size.height * 0.38)
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.32,
+        size.width,
+        size.height * 0.44,
+      );
+    canvas.drawPath(arcPath1, strokePaint);
+
+    final arcPath2 = Path()
+      ..moveTo(0, size.height * 0.65)
+      ..quadraticBezierTo(
+        size.width * 0.55,
+        size.height * 0.72,
+        size.width,
+        size.height * 0.60,
+      );
+    canvas.drawPath(arcPath2, strokePaint..color = const Color(0xFFF97316).withValues(alpha: 0.07));
+
+    // 2. Subtle Watermark Text: "MELAPALAYAM" across upper section
+    final melapalayamPainter = TextPainter(
+      text: TextSpan(
+        text: 'MELAPALAYAM',
+        style: TextStyle(
+          fontSize: size.width * 0.105,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 8,
+          color: const Color(0xFF0F172A).withValues(alpha: 0.025),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width);
+
+    melapalayamPainter.paint(
+      canvas,
+      Offset(
+        (size.width - melapalayamPainter.width) / 2,
+        size.height * 0.28,
+      ),
+    );
+
+    // 3. Subtle Tamil Watermark Text: "மேலப்பாளையம்" across lower section
+    final tamilPainter = TextPainter(
+      text: TextSpan(
+        text: 'மேலப்பாளையம்',
+        style: TextStyle(
+          fontSize: size.width * 0.09,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 4,
+          color: const Color(0xFF16A34A).withValues(alpha: 0.035),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width);
+
+    tamilPainter.paint(
+      canvas,
+      Offset(
+        (size.width - tamilPainter.width) / 2,
+        size.height * 0.62,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // Custom Painter for the High-Precision ZIPPO Delivery Scooter
@@ -819,7 +1024,7 @@ class _ScooterVectorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Drop shadow under scooter
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.12)
+      ..color = Colors.black.withValues(alpha: 0.12)
       ..style = PaintingStyle.fill;
     canvas.drawOval(
       Rect.fromCenter(
@@ -830,7 +1035,7 @@ class _ScooterVectorPainter extends CustomPainter {
       shadowPaint,
     );
 
-    // 1. Cargo Box (Orange & Green Accent)
+    // 1. Cargo Box (Orange with Green Outline)
     final boxPaint = Paint()..color = const Color(0xFFF97316);
     final boxRRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(size.width * 0.12, size.height * 0.18, 22, 20),
