@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-white">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZIPPO — Hyper-Local Errand & Express Delivery | Melapalayam (மேலப்பாளையம்)</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans, Outfit, Space Grotesk, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700;800&family=Outfit:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['"Outfit"', 'sans-serif'],
+            brand: ['"Space Grotesk"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              DEFAULT: '#76C457',
+              50: '#f4faf0',
+              100: '#e5f5df',
+              200: '#ccebc0',
+              300: '#a6de94',
+              400: '#76C457',
+              500: '#56ab35',
+              600: '#418b26',
+              700: '#346d21',
+              800: '#2d571e',
+              900: '#26481b',
+            }
+          },
+          boxShadow: {
+            'isometric': '0 25px 45px -12px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03)',
+            '3d-btn': '0 10px 25px -4px rgba(118, 196, 87, 0.45), 0 4px 0 #3a7c1e',
+            '3d-btn-active': '0 4px 10px -2px rgba(118, 196, 87, 0.3), 0 1px 0 #3a7c1e',
+            'card-lift': '0 20px 40px -15px rgba(118, 196, 87, 0.16), 0 0 0 1px #e2e8f0',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Clean Modern Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #ffffff; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #76C457; }
+
+    /* 3D Perspective Stage */
+    .perspective-stage {
+      perspective: 1200px;
+      perspective-origin: 50% 40%;
+    }
+
+    /* Isometric Floor Plane Grid */
+    .iso-ground-plane {
+      transform: rotateX(62deg) rotateZ(0deg) translateZ(-60px);
+      transform-style: preserve-3d;
+      background-size: 40px 40px;
+      background-image: 
+        linear-gradient(to right, rgba(226, 232, 240, 0.7) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(226, 232, 240, 0.7) 1px, transparent 1px);
+    }
+
+    /* 3D Perspective Road Track line animation */
+    @keyframes roadGlide {
+      from { stroke-dashoffset: 80; }
+      to { stroke-dashoffset: 0; }
+    }
+    .iso-road-line {
+      stroke-dasharray: 16 14;
+      animation: roadGlide 0.35s linear infinite;
+    }
+
+    /* 3D Scooter Assembly */
+    .scooter-3d-box {
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+
+    /* Dynamic suspension wobble */
+    @keyframes isoScooterBob {
+      0%, 100% { transform: translateY(0px) rotateZ(0deg) rotateX(0deg); }
+      50% { transform: translateY(-4px) rotateZ(0.8deg) rotateX(-1deg); }
+    }
+    .scooter-engine-bob {
+      animation: isoScooterBob 0.22s ease-in-out infinite;
+    }
+
+    /* Wheel spinning animations */
+    @keyframes spinRim {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .wheel-spin-fast {
+      transform-origin: center;
+      animation: spinRim 0.28s linear infinite;
+    }
+
+    /* 3D Extruded Letters */
+    .letter-3d-cube {
+      transform-style: preserve-3d;
+      opacity: 0;
+      transform: translateY(50px) rotateX(-70deg) scale(0.4);
+      filter: blur(10px);
+      transition: all 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .letter-3d-cube.revealed {
+      opacity: 1;
+      transform: translateY(0px) rotateX(0deg) scale(1);
+      filter: blur(0px);
+    }
+
+    /* 3D Floor Text Extrusion */
+    .text-depth-3d {
+      text-shadow: 
+        0 1px 0 #cbd5e1,
+        0 2px 0 #cbd5e1,
+        0 3px 0 #94a3b8,
+        0 4px 0 #94a3b8,
+        0 8px 20px rgba(118, 196, 87, 0.35),
+        0 18px 30px rgba(15, 23, 42, 0.12);
+    }
+    .text-depth-3d-green {
+      text-shadow: 
+        0 1px 0 #56ab35,
+        0 2px 0 #418b26,
+        0 3px 0 #346d21,
+        0 4px 0 #26481b,
+        0 8px 24px rgba(118, 196, 87, 0.55),
+        0 20px 35px rgba(86, 171, 53, 0.2);
+    }
+
+    /* Aerodynamic Speed Streaks */
+    @keyframes streakShoot {
+      0% { opacity: 0; transform: scaleX(0.2) translateX(30px); }
+      50% { opacity: 0.9; transform: scaleX(1.4) translateX(0px); }
+      100% { opacity: 0; transform: scaleX(0.1) translateX(-40px); }
+    }
+    .speed-streak {
+      animation: streakShoot 0.4s ease-out infinite;
+    }
+
+    /* Intro Overlay Transition to Home */
+    #isoIntroOverlay {
+      transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1), opacity 0.8s ease;
+    }
+    #isoIntroOverlay.curtain-zoom-exit {
+      transform: scale(1.08) translateY(-40px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* 3D Tactile Buttons */
+    .btn-brand-tactile {
+      background: linear-gradient(135deg, #76C457 0%, #4fac28 100%);
+      box-shadow: 0 10px 22px -5px rgba(118, 196, 87, 0.42), 0 3px 0 #3a7c1e;
+      transition: all 0.18s ease;
+    }
+    .btn-brand-tactile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 26px -4px rgba(118, 196, 87, 0.52), 0 4px 0 #3a7c1e;
+      filter: brightness(1.03);
+    }
+    .btn-brand-tactile:active {
+      transform: translateY(2px);
+      box-shadow: 0 4px 10px -2px rgba(118, 196, 87, 0.3), 0 1px 0 #3a7c1e;
+    }
+
+    /* Interactive 3D Service Card Hover */
+    .service-card-3d {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(0,0,0,0.02);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+    }
+    .service-card-3d:hover {
+      transform: translateY(-8px) scale(1.01);
+      box-shadow: 0 24px 45px -12px rgba(118, 196, 87, 0.22), 0 0 0 1.5px rgba(118, 196, 87, 0.35);
+      border-color: #76C457;
+    }
+  </style>
+</head>
+<body class="min-h-full flex flex-col font-sans bg-white text-slate-800 antialiased overflow-x-hidden selection:bg-brand-500 selection:text-white">
+
+  <!-- ================================================================= -->
+  <!-- 3D ISOMETRIC INTRO OVERLAY (Pure White, 3D Scooter, ZIPPO & MELAPALAYAM) -->
+  <!-- ================================================================= -->
+  <aside id="isoIntroOverlay" aria-label="3D Animated Intro" class="fixed inset-0 z-[9999] flex flex-col items-center justify-between bg-white overflow-hidden select-none p-6 shadow-2xl">
+    
+    <!-- Clean Background Accents -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-brand-50 rounded-full blur-3xl opacity-75 pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-50 rounded-full blur-3xl opacity-75 pointer-events-none"></div>
+
+    <!-- Top Dispatch Status Bar -->
+    <div class="w-full max-w-5xl flex items-center justify-between relative z-20">
+      <div class="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm">
+        <span class="w-2.5 h-2.5 rounded-full bg-brand animate-ping"></span>
+        <span class="text-xs font-mono font-bold tracking-wider text-slate-700 uppercase">Melapalayam 3D Dispatch Engine</span>
+      </div>
+
+      <button onclick="skipIsoIntro()" class="group flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold transition shadow-sm">
+        <span>Skip to Home</span>
+        <i data-lucide="arrow-right" class="w-4 h-4 transition-transform group-hover:translate-x-1"></i>
+      </button>
+    </div>
+
+    <!-- Center 3D Perspective Stage -->
+    <div class="perspective-stage relative w-full max-w-4xl flex-1 flex flex-col items-center justify-center my-auto">
+      
+      <!-- Isometric Ground Floor Plane -->
+      <div class="iso-ground-plane absolute w-[120%] h-[320px] rounded-[40px] pointer-events-none border border-slate-200/60"></div>
+
+      <!-- Phase 1: Minimalist 3D App Icon / Badge -->
+      <div id="isoInitialLogo" class="relative z-10 flex flex-col items-center text-center space-y-4 transition-all duration-700">
+        <div class="relative">
+          <div class="absolute inset-0 rounded-3xl bg-brand-400 blur-2xl opacity-40 animate-pulse"></div>
+          <div class="relative w-28 h-28 rounded-3xl bg-white border-2 border-brand-200 p-2 shadow-2xl flex flex-col items-center justify-center">
+            <div class="w-full h-full rounded-2xl bg-gradient-to-tr from-brand to-emerald-500 flex flex-col items-center justify-center text-white shadow-inner">
+              <span class="font-brand font-black text-4xl tracking-tighter">Z</span>
+              <span class="text-[9px] font-mono tracking-widest font-black uppercase text-brand-100">EXPRESS</span>
+            </div>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <p class="text-xs font-mono font-extrabold uppercase tracking-[0.25em] text-brand-600">Melapalayam Hyper-Local</p>
+          <h2 class="text-2xl sm:text-3xl font-display font-black text-slate-900 tracking-tight">Starting Delivery Fleet...</h2>
+        </div>
+      </div>
+
+      <!-- Phase 2: 3D Extruded Letters Stage ("Z I P P O") + Melapalayam Tamil Badge -->
+      <div id="isoLettersStage" class="relative z-20 w-full max-w-3xl hidden flex flex-col items-center px-4 sm:px-10 py-6">
+        
+        <!-- Letters Row -->
+        <div class="w-full flex items-center justify-between">
+          <!-- Letter 3D: Z -->
+          <div id="letter-box-0" class="letter-3d-cube flex flex-col items-center">
+            <span class="font-brand font-black text-7xl sm:text-8xl md:text-9xl text-slate-900 text-depth-3d tracking-tight">Z</span>
+            <span class="text-[10px] font-mono font-extrabold uppercase text-slate-700 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm mt-2">Zero Wait</span>
+          </div>
+
+          <!-- Letter 3D: I -->
+          <div id="letter-box-1" class="letter-3d-cube flex flex-col items-center">
+            <span class="font-brand font-black text-7xl sm:text-8xl md:text-9xl text-brand text-depth-3d-green tracking-tight">I</span>
+            <span class="text-[10px] font-mono font-extrabold uppercase text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200 shadow-sm mt-2">Instant</span>
+          </div>
+
+          <!-- Letter 3D: P -->
+          <div id="letter-box-2" class="letter-3d-cube flex flex-col items-center">
+            <span class="font-brand font-black text-7xl sm:text-8xl md:text-9xl text-slate-900 text-depth-3d tracking-tight">P</span>
+            <span class="text-[10px] font-mono font-extrabold uppercase text-slate-700 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm mt-2">Pickup</span>
+          </div>
+
+          <!-- Letter 3D: P -->
+          <div id="letter-box-3" class="letter-3d-cube flex flex-col items-center">
+            <span class="font-brand font-black text-7xl sm:text-8xl md:text-9xl text-slate-900 text-depth-3d tracking-tight">P</span>
+            <span class="text-[10px] font-mono font-extrabold uppercase text-slate-700 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm mt-2">Parcel</span>
+          </div>
+
+          <!-- Letter 3D: O -->
+          <div id="letter-box-4" class="letter-3d-cube flex flex-col items-center">
+            <span class="font-brand font-black text-7xl sm:text-8xl md:text-9xl text-brand text-depth-3d-green tracking-tight">O</span>
+            <span class="text-[10px] font-mono font-extrabold uppercase text-brand-700 bg-brand-50 px-3 py-1 rounded-full border border-brand-200 shadow-sm mt-2">On-Demand</span>
+          </div>
+        </div>
+
+        <!-- Melapalayam & மேலப்பாளையம் Sub-Branding Container -->
+        <div id="introTamilTag" class="mt-6 opacity-0 translate-y-4 transition-all duration-700 flex flex-col sm:flex-row items-center gap-3">
+          <div class="hidden sm:block h-[1.5px] w-12 sm:w-20 bg-gradient-to-r from-transparent to-brand"></div>
+          
+          <div class="flex items-center gap-2.5 px-6 py-2 rounded-full bg-brand-50 border border-brand-200 shadow-sm">
+            <span class="text-xs font-mono font-extrabold text-slate-600 uppercase tracking-widest">Melapalayam</span>
+            <span class="text-brand-400 font-bold">•</span>
+            <span class="font-extrabold text-brand-800 text-base sm:text-lg tracking-wider font-sans">
+              மேலப்பாளையம்
+            </span>
+          </div>
+
+          <div class="hidden sm:block h-[1.5px] w-12 sm:w-20 bg-gradient-to-l from-transparent to-brand"></div>
+        </div>
+
+      </div>
+
+      <!-- Phase 3: Perspective Road Line & 3D Isometric Scooter -->
+      <div id="isoTrackWrapper" class="relative z-30 w-full max-w-3xl mt-4 hidden">
+        
+        <!-- Clean Vector Road Surface -->
+        <div class="relative w-full h-8 flex items-center">
+          <svg class="w-full h-4 overflow-visible" preserveAspectRatio="none">
+            <line x1="0" y1="8" x2="100%" y2="8" stroke="#e2e8f0" stroke-width="5" stroke-linecap="round"/>
+            <line class="iso-road-line" x1="0" y1="8" x2="100%" y2="8" stroke="#76C457" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <!-- 3D Isometric Delivery Scooter -->
+        <div id="isoMovingScooter" class="scooter-3d-box absolute -top-16 left-0 -translate-x-full transition-transform will-change-transform pointer-events-none">
+          <div class="scooter-engine-bob relative flex items-center justify-center">
+            
+            <!-- Speed Streaks -->
+            <div class="absolute -left-12 top-7 flex flex-col gap-1 pointer-events-none">
+              <span class="speed-streak w-10 h-0.5 bg-gradient-to-l from-brand to-transparent rounded-full opacity-80"></span>
+              <span class="speed-streak w-14 h-0.5 bg-gradient-to-l from-slate-400 to-transparent rounded-full opacity-60" style="animation-delay: 0.1s;"></span>
+              <span class="speed-streak w-8 h-0.5 bg-gradient-to-l from-brand-300 to-transparent rounded-full opacity-90" style="animation-delay: 0.2s;"></span>
+            </div>
+
+            <!-- Headlight Beam -->
+            <div class="absolute -right-16 top-4 w-20 h-7 bg-gradient-to-r from-amber-300/40 via-brand-200/20 to-transparent blur-md pointer-events-none rounded-r-full"></div>
+
+            <!-- Vector Scooter -->
+            <svg class="w-28 h-28 drop-shadow-xl" viewBox="0 0 130 130" fill="none">
+              <ellipse cx="60" cy="100" rx="46" ry="7" fill="rgba(15, 23, 42, 0.12)" />
+
+              <!-- Rear 3D Cargo Box -->
+              <path d="M14 42L36 36L48 44L26 50Z" fill="#a6de94"/>
+              <path d="M14 42L26 50V74L14 66Z" fill="#56ab35"/>
+              <path d="M26 50L48 44V68L26 74Z" fill="#76C457"/>
+              <circle cx="37" cy="58" r="5" fill="#ffffff" />
+              <path d="M35 56H39L35 60H39" stroke="#1e293b" stroke-width="1.2" stroke-linecap="round"/>
+
+              <!-- Chassis -->
+              <path d="M48 68L68 64L88 72L64 78Z" fill="#418b26"/>
+              <path d="M60 52L72 50L86 64L74 66Z" fill="#76C457"/>
+
+              <!-- Rider -->
+              <circle cx="68" cy="30" r="10" fill="#1e293b"/>
+              <path d="M66 28C66 23 70 20 76 20" stroke="#76C457" stroke-width="3" stroke-linecap="round"/>
+              <path d="M72 28H80" stroke="#facc15" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M58 42C58 38 64 36 70 38L80 48L72 60L60 54Z" fill="#15803d"/>
+
+              <!-- Handlebar & Headlight -->
+              <path d="M82 46L94 48" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round"/>
+              <circle cx="96" cy="54" r="4.5" fill="#facc15" stroke="#1e293b" stroke-width="1.5"/>
+
+              <!-- Wheels -->
+              <g class="wheel-spin-fast" style="transform-origin: 34px 88px;">
+                <circle cx="34" cy="88" r="15" fill="#1e293b" stroke="#76C457" stroke-width="3"/>
+                <circle cx="34" cy="88" r="6" fill="#ffffff"/>
+                <line x1="34" y1="75" x2="34" y2="101" stroke="#94a3b8" stroke-width="1.8"/>
+                <line x1="21" y1="88" x2="47" y2="88" stroke="#94a3b8" stroke-width="1.8"/>
+              </g>
+
+              <g class="wheel-spin-fast" style="transform-origin: 90px 88px;">
+                <circle cx="90" cy="88" r="15" fill="#1e293b" stroke="#76C457" stroke-width="3"/>
+                <circle cx="90" cy="88" r="6" fill="#ffffff"/>
+                <line x1="90" y1="75" x2="90" y2="101" stroke="#94a3b8" stroke-width="1.8"/>
+                <line x1="77" y1="88" x2="103" y2="88" stroke="#94a3b8" stroke-width="1.8"/>
+              </g>
+            </svg>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Intro Bottom Progress & Status -->
+    <div class="w-full max-w-md text-center space-y-2 relative z-20">
+      <div id="isoStatusText" class="text-xs font-mono font-bold text-slate-500">
+        Calibrating Melapalayam delivery routes...
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+        <div id="isoProgressBar" class="h-full bg-gradient-to-r from-brand via-emerald-400 to-lime-300 w-0 transition-all duration-300"></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ================================================================= -->
+  <!-- MAIN LANDING PAGE CONTENT (Crisp White & Green Aesthetics)         -->
+  <!-- ================================================================= -->
+  
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Brand Title & Location Tag -->
+        <a href="#home" class="flex items-center gap-3.5 group">
+          <div class="w-12 h-12 rounded-2xl bg-brand-50 border-2 border-brand-200 flex items-center justify-center p-1 group-hover:border-brand transition shadow-sm">
+            <div class="w-full h-full rounded-xl bg-gradient-to-tr from-brand to-emerald-500 flex items-center justify-center text-white shadow-inner">
+              <span class="font-brand font-black text-xl">Z</span>
+            </div>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-2xl font-brand font-black tracking-tight text-slate-900 leading-none">ZIPPO</span>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="text-[11px] font-extrabold text-brand-700 tracking-wider font-sans">மேலப்பாளையம்</span>
+              <span class="text-slate-300 text-xs">•</span>
+              <span class="text-[10px] font-mono text-slate-500 font-semibold uppercase">Melapalayam</span>
+            </div>
+          </div>
+        </a>
+
+        <!-- Desktop Controls -->
+        <div class="hidden md:flex items-center gap-3.5">
+          
+          <!-- Replay 3D Intro Button -->
+          <button onclick="trigger3DIntro()" class="flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold transition shadow-sm">
+            <i data-lucide="play" class="w-3.5 h-3.5 text-brand-600 fill-brand-600"></i>
+            <span>Replay 3D Intro</span>
+          </button>
+
+          <!-- Active Fleet Status -->
+          <div class="flex items-center gap-2 px-3.5 py-2 rounded-full bg-brand-50 border border-brand-200 text-brand-800 text-xs font-bold">
+            <span class="w-2.5 h-2.5 rounded-full bg-brand animate-ping"></span>
+            <span>Riders Active in Bazaar</span>
+          </div>
+
+          <!-- Download Action -->
+          <a href="#downloadSection" class="px-6 py-2.5 rounded-full btn-brand-tactile text-white font-display font-extrabold text-xs flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Download APK</span>
+          </a>
+
+        </div>
+
+        <!-- Mobile Quick Actions -->
+        <div class="flex items-center gap-2 md:hidden">
+          <button onclick="trigger3DIntro()" class="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700" title="Replay Intro">
+            <i data-lucide="play" class="w-4 h-4 text-brand fill-brand"></i>
+          </button>
+          <a href="#downloadSection" class="w-10 h-10 rounded-2xl bg-brand text-white flex items-center justify-center shadow-md">
+            <i data-lucide="download" class="w-4 h-4"></i>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="flex-1">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-20">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        
+        <!-- Left Hero Copy -->
+        <div class="lg:col-span-7 space-y-6 text-center lg:text-left">
+          
+          <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-sm">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+            <span>100% Guest Mode • No Login Required • Settle via UPI / Cash</span>
+          </div>
+
+          <h1 class="text-4xl sm:text-6xl font-display font-black text-slate-900 tracking-tight leading-[1.12]">
+            Fastest Errand & Express Delivery in <br>
+            <span class="inline-flex flex-col items-center lg:items-start mt-1">
+              <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 via-brand-500 to-emerald-500">
+                ZIPPO
+              </span>
+              <span class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-wide font-sans -mt-1">
+                மேலப்பாளையம் (Melapalayam)
+              </span>
+            </span>
+          </h1>
+
+          <p class="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
+            Fresh Mutton & Chicken cuts, Morning Bazaar Fish, Hot Biryani & Parotta, Medicines, Forgotten House Keys, or an urgent Bike Lift to Junction. Delivered in <strong>10 to 15 minutes</strong> across town!
+          </p>
+
+          <!-- Call to Action Row -->
+          <div class="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
+            <a href="#downloadSection" class="px-8 py-4 rounded-full btn-brand-tactile text-white font-display font-black text-sm flex items-center gap-3">
+              <i data-lucide="download" class="w-5 h-5"></i>
+              <span>Download ZIPPO APK</span>
+            </a>
+
+            <button onclick="trigger3DIntro()" class="px-6 py-4 rounded-full bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-bold flex items-center gap-2.5 shadow-sm transition">
+              <i data-lucide="sparkles" class="w-4 h-4 text-brand-600"></i>
+              <span>Watch 3D Scooter Run</span>
+            </button>
+          </div>
+
+          <!-- Feature Metrics -->
+          <div class="grid grid-cols-3 gap-4 pt-4 text-left">
+            <div class="p-4 rounded-3xl bg-slate-50 border border-slate-200 shadow-sm">
+              <p class="text-2xl font-display font-black text-slate-900">₹30</p>
+              <p class="text-xs text-slate-500 font-semibold mt-0.5">Base 2 KM Delivery</p>
+            </div>
+            <div class="p-4 rounded-3xl bg-brand-50 border border-brand-200 shadow-sm">
+              <p class="text-2xl font-brand font-black text-brand-700">10-15m</p>
+              <p class="text-xs text-brand-800 font-semibold mt-0.5">Town Turnaround</p>
+            </div>
+            <div class="p-4 rounded-3xl bg-slate-50 border border-slate-200 shadow-sm">
+              <p class="text-2xl font-display font-black text-slate-900">PIN</p>
+              <p class="text-xs text-slate-500 font-semibold mt-0.5">4-Digit Safe Handover</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right App Card Mockup -->
+        <div class="lg:col-span-5 flex justify-center">
+          <div class="w-full max-w-sm rounded-[44px] p-5 bg-white border-4 border-slate-100 shadow-2xl relative">
+            
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-brand text-white font-black flex items-center justify-center font-brand text-xs shadow-sm">
+                  Z
+                </div>
+                <div>
+                  <h4 class="text-xs font-black text-slate-900">ZIPPO Dispatch</h4>
+                  <p class="text-[10px] text-emerald-600 font-bold">● மேலப்பாளையம் Ready</p>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-600">Guest</span>
+            </div>
+
+            <!-- In-App Interactive Service Items -->
+            <div class="py-4 space-y-3">
+              <div class="p-3.5 rounded-2xl bg-slate-50 hover:bg-brand-50/50 border border-slate-200/80 transition cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-extrabold text-slate-900 flex items-center gap-2">
+                    <span>🍗</span> Buy For Me (வாங்கிக் கொடுங்க)
+                  </span>
+                  <span class="text-[10px] font-mono font-bold text-brand-700">From ₹30</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Butcher mutton, hotel food, pharmacy pills.</p>
+              </div>
+
+              <div class="p-3.5 rounded-2xl bg-slate-50 hover:bg-brand-50/50 border border-slate-200/80 transition cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-extrabold text-slate-900 flex items-center gap-2">
+                    <span>📦</span> Pickup & Drop (எடுத்துக் கொடுங்க)
+                  </span>
+                  <span class="text-[10px] font-mono font-bold text-slate-600">15 Mins</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Keys, lunch boxes, parcel dropoffs.</p>
+              </div>
+
+              <div class="p-3.5 rounded-2xl bg-slate-50 hover:bg-brand-50/50 border border-slate-200/80 transition cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-extrabold text-slate-900 flex items-center gap-2">
+                    <span>🛵</span> Bike Drop Lift (பைக் டிராப்)
+                  </span>
+                  <span class="text-[10px] font-mono font-bold text-emerald-700">1 Rider</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Point-to-point lift to Junction or Bazaar.</p>
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <a href="https://qrco.de/bh53rv" target="_blank" class="w-full py-3.5 rounded-2xl btn-brand-tactile text-white font-display font-black text-xs text-center flex items-center justify-center gap-2">
+                <span>Download Sideload APK</span>
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              </a>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Service Offerings (Clean 3D White Cards) -->
+      <section class="mt-24">
+        <div class="text-center max-w-2xl mx-auto space-y-3 mb-12">
+          <span class="px-3.5 py-1 rounded-full text-xs font-mono font-extrabold bg-brand-100 text-brand-800 border border-brand-200 uppercase">
+            Town Services
+          </span>
+          <h2 class="text-3xl sm:text-4xl font-display font-black text-slate-900">
+            What Can ZIPPO Do For You Today?
+          </h2>
+          <p class="text-sm text-slate-500 font-normal">
+            Assigned to real Melapalayam riders with transparent distance-based pricing.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <!-- Service Card 1 -->
+          <div class="service-card-3d p-8 rounded-[32px] flex flex-col justify-between">
+            <div class="space-y-4">
+              <div class="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-3xl shadow-sm">
+                🥩
+              </div>
+              <div>
+                <h3 class="text-xl font-display font-extrabold text-slate-900">Buy For Me</h3>
+                <p class="text-xs font-bold text-brand-600 font-mono mt-0.5">வாங்கிக் கொடுங்க</p>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed font-normal">
+                Tell us what to buy from any shop in Melapalayam. Fresh mutton cuts from Bazaar, hotel parotta, prescription medicines, or grocery goods. The rider buys it and delivers with the original store bill.
+              </p>
+            </div>
+            
+            <div class="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between text-xs font-bold">
+              <span class="text-slate-500 font-mono">Base 2 km: ₹30</span>
+              <span class="text-brand-600 font-mono">+ ₹10/km</span>
+            </div>
+          </div>
+
+          <!-- Service Card 2 -->
+          <div class="service-card-3d p-8 rounded-[32px] flex flex-col justify-between">
+            <div class="space-y-4">
+              <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-3xl shadow-sm">
+                📦
+              </div>
+              <div>
+                <h3 class="text-xl font-display font-extrabold text-slate-900">Pickup & Drop</h3>
+                <p class="text-xs font-bold text-amber-600 font-mono mt-0.5">எடுத்துக் கொடுங்க</p>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed font-normal">
+                Forgot house keys or office files? Need to deliver a warm home-cooked tiffin box to school or hospital? Our rider picks it up from your doorstep and delivers securely using a 4-digit PIN.
+              </p>
+            </div>
+            
+            <div class="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between text-xs font-bold">
+              <span class="text-slate-500 font-mono">Base 2 km: ₹30</span>
+              <span class="text-brand-600 font-mono">PIN Secured</span>
+            </div>
+          </div>
+
+          <!-- Service Card 3 -->
+          <div class="service-card-3d p-8 rounded-[32px] flex flex-col justify-between">
+            <div class="space-y-4">
+              <div class="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-3xl shadow-sm">
+                🛵
+              </div>
+              <div>
+                <h3 class="text-xl font-display font-extrabold text-slate-900">Bike Drop / Ride Lift</h3>
+                <p class="text-xs font-bold text-emerald-600 font-mono mt-0.5">பைக் டிராப்</p>
+              </div>
+              <p class="text-xs text-slate-600 leading-relaxed font-normal">
+                Need to reach Tirunelveli Junction railway station, Palayamkottai bus stand, or town bazaar without paying inflated auto fares? Request an instant pillion bike ride with a verified rider.
+              </p>
+            </div>
+            
+            <div class="pt-6 border-t border-slate-100 mt-6 flex items-center justify-between text-xs font-bold">
+              <span class="text-slate-500 font-mono">Single Pillion</span>
+              <span class="text-brand-600 font-mono">Point-to-Point</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Download Banner Section -->
+      <section id="downloadSection" class="mt-24 p-8 sm:p-12 rounded-[36px] bg-slate-50 border-2 border-slate-200 shadow-sm">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          
+          <div class="lg:col-span-8 space-y-4">
+            <span class="text-xs font-mono font-extrabold uppercase tracking-wider text-brand-800 bg-brand-100 px-3 py-1 rounded-full border border-brand-200">
+              Verified Android Release
+            </span>
+            <h2 class="text-3xl sm:text-4xl font-display font-black text-slate-900">
+              Install ZIPPO on Android Directly
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl font-normal">
+              Direct sideload APK without any Google Play Store logins or bloatware. Point your camera at the QR code or tap the direct button to install in under 10 seconds.
+            </p>
+
+            <div class="flex flex-wrap items-center gap-4 pt-2">
+              <a href="https://qrco.de/bh53rv" target="_blank" class="px-7 py-3.5 rounded-full btn-brand-tactile text-white font-display font-black text-xs flex items-center gap-2.5">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>Download APK File</span>
+              </a>
+
+              <a href="https://qrco.de/bh53rv" target="_blank" class="text-xs font-mono font-bold text-brand-600 hover:underline">
+                https://qrco.de/bh53rv
+              </a>
+            </div>
+          </div>
+
+          <!-- Clean QR Container -->
+          <div class="lg:col-span-4 flex flex-col items-center text-center space-y-2">
+            <div class="p-4 bg-white rounded-3xl shadow-md border border-slate-200">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https://qrco.de/bh53rv" alt="ZIPPO Download QR" class="w-36 h-36 rounded-xl" />
+            </div>
+            <p class="text-[11px] font-bold text-slate-500">Scan with phone camera or Lens</p>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Clean Footer -->
+  <footer class="bg-white border-t border-slate-200 py-8 px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="font-brand font-black text-base text-slate-900">ZIPPO</span>
+        <span>• Hyper-Local Melapalayam (மேலப்பாளையம்) Delivery Service</span>
+      </div>
+      <p class="font-mono text-[11px]">© 2026 ZIPPO Express Network. Fast, Reliable, Local.</p>
+    </div>
+  </footer>
+
+  <!-- ================================================================= -->
+  <!-- JAVASCRIPT: 3D ISOMETRIC SCOOTER DRIVE & LETTER UNVEIL TIMELINE  -->
+  <!-- ================================================================= -->
+  <script>
+    let isoTimer = null;
+
+    function reset3DIntro() {
+      const overlay = document.getElementById('isoIntroOverlay');
+      const logoStage = document.getElementById('isoInitialLogo');
+      const lettersStage = document.getElementById('isoLettersStage');
+      const trackWrapper = document.getElementById('isoTrackWrapper');
+      const movingScooter = document.getElementById('isoMovingScooter');
+      const progressBar = document.getElementById('isoProgressBar');
+      const statusText = document.getElementById('isoStatusText');
+      const introTamilTag = document.getElementById('introTamilTag');
+
+      overlay.classList.remove('curtain-zoom-exit');
+      overlay.style.display = 'flex';
+
+      logoStage.classList.remove('hidden');
+      logoStage.style.opacity = '1';
+      logoStage.style.transform = 'scale(1)';
+
+      lettersStage.classList.add('hidden');
+      trackWrapper.classList.add('hidden');
+
+      movingScooter.style.transition = 'none';
+      movingScooter.style.transform = 'translateX(-120px)';
+
+      progressBar.style.width = '0%';
+      statusText.innerText = "Calibrating Melapalayam delivery routes...";
+
+      if (introTamilTag) {
+        introTamilTag.classList.remove('opacity-100', 'translate-y-0');
+        introTamilTag.classList.add('opacity-0', 'translate-y-4');
+      }
+
+      for (let i = 0; i < 5; i++) {
+        const letter = document.getElementById(`letter-box-${i}`);
+        if (letter) letter.classList.remove('revealed');
+      }
+    }
+
+    function trigger3DIntro() {
+      if (isoTimer) clearTimeout(isoTimer);
+      reset3DIntro();
+
+      const logoStage = document.getElementById('isoInitialLogo');
+      const lettersStage = document.getElementById('isoLettersStage');
+      const trackWrapper = document.getElementById('isoTrackWrapper');
+      const movingScooter = document.getElementById('isoMovingScooter');
+      const progressBar = document.getElementById('isoProgressBar');
+      const statusText = document.getElementById('isoStatusText');
+      const introTamilTag = document.getElementById('introTamilTag');
+
+      progressBar.style.width = '25%';
+
+      // Step 1: Initial Badge for 1.1s
+      isoTimer = setTimeout(() => {
+        logoStage.style.opacity = '0';
+        logoStage.style.transform = 'scale(0.85)';
+
+        setTimeout(() => {
+          logoStage.classList.add('hidden');
+          lettersStage.classList.remove('hidden');
+          trackWrapper.classList.remove('hidden');
+          statusText.innerText = "ZIPPO 3D rider cruising across town...";
+          progressBar.style.width = '45%';
+
+          const trackWidth = trackWrapper.clientWidth || 600;
+          const transitTime = 2500; // ms
+
+          // Smooth transit with cubic-bezier
+          movingScooter.style.transition = `transform ${transitTime}ms cubic-bezier(0.25, 0.1, 0.25, 1)`;
+          movingScooter.style.transform = `translateX(${trackWidth + 140}px)`;
+
+          // Step 2: Unveil each 3D Extruded Letter sequentially as scooter moves past
+          const letterTimeline = [
+            { id: 0, delay: 350 },  // Z
+            { id: 1, delay: 850 },  // I
+            { id: 2, delay: 1350 }, // P
+            { id: 3, delay: 1850 }, // P
+            { id: 4, delay: 2350 }  // O
+          ];
+
+          letterTimeline.forEach(step => {
+            setTimeout(() => {
+              const el = document.getElementById(`letter-box-${step.id}`);
+              if (el) {
+                el.classList.add('revealed');
+              }
+            }, step.delay);
+          });
+
+          // Unveil "Melapalayam • மேலப்பாளையம்" directly beneath ZIPPO letters as 'O' pops
+          setTimeout(() => {
+            if (introTamilTag) {
+              introTamilTag.classList.remove('opacity-0', 'translate-y-4');
+              introTamilTag.classList.add('opacity-100', 'translate-y-0');
+            }
+          }, 2450);
+
+          // Step 3: Scooter exits screen, zoom-fade out overlay into home
+          setTimeout(() => {
+            progressBar.style.width = '100%';
+            statusText.innerText = "Welcome to ZIPPO! Arrived.";
+
+            setTimeout(() => {
+              skipIsoIntro();
+            }, 650);
+
+          }, transitTime + 400);
+
+        }, 350);
+
+      }, 1100);
+    }
+
+    function skipIsoIntro() {
+      const overlay = document.getElementById('isoIntroOverlay');
+      overlay.classList.add('curtain-zoom-exit');
+      setTimeout(() => {
+        overlay.style.display = 'none';
+      }, 800);
+    }
+
+    // Launch on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      trigger3DIntro();
+    });
+  </script>
+</body>
+</html>

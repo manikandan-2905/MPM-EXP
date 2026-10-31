@@ -14,6 +14,7 @@ import '../../services/notification_service.dart';
 import '../../widgets/legal_warning_banner.dart';
 import '../admin/admin_login_screen.dart';
 import '../admin/admin_shell_screen.dart';
+import '../intro/zippo_landing_intro_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({Key? key}) : super(key: key);
@@ -1748,31 +1749,40 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ZippoLandingIntroScreen(),
                             ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.asset(
-                            'assets/logo.png',
-                            width: 44,
-                            height: 44,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) => Container(
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.asset(
+                              'assets/logo.png',
                               width: 44,
                               height: 44,
-                              color: const Color(0xFFF97316),
-                              child: const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 24),
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                width: 44,
+                                height: 44,
+                                color: const Color(0xFFF97316),
+                                child: const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 24),
+                              ),
                             ),
                           ),
                         ),

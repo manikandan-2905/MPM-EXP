@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'config/constants.dart';
 import 'services/notification_service.dart';
-import 'screens/customer/customer_home_screen.dart';
+import 'screens/intro/zippo_landing_intro_screen.dart';
 import 'screens/customer/order_tracking_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -62,7 +62,7 @@ class MelapalayamExpressApp extends StatelessWidget {
         fontFamily: 'sans-serif',
         useMaterial3: true,
       ),
-      home: const CustomerHomeScreen(),
+      home: const ZippoLandingIntroScreen(),
     );
   }
 }
