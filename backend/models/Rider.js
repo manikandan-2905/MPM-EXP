@@ -21,9 +21,41 @@ const riderSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    totalOrders: {
+      type: Number,
+      default: 0,
+    },
     totalEarnings: {
       type: Number,
       default: 0,
+    },
+    todayOrders: {
+      type: Number,
+      default: 0,
+    },
+    todayEarnings: {
+      type: Number,
+      default: 0,
+    },
+    cashEarnings: {
+      type: Number,
+      default: 0,
+    },
+    upiEarnings: {
+      type: Number,
+      default: 0,
+    },
+    todayCashOrders: {
+      type: Number,
+      default: 0,
+    },
+    todayUpiOrders: {
+      type: Number,
+      default: 0,
+    },
+    lastActiveDate: {
+      type: Date,
+      default: Date.now,
     },
     fcmToken: {
       type: String,

@@ -16,7 +16,7 @@ class OrderSuccessShareScreen extends StatelessWidget {
   void _shareToWhatsApp(BuildContext context) {
     Share.share(
       whatsappTicket,
-      subject: 'Melapalayam Express Order #${order.orderNumber}',
+      subject: 'ZIPPO Order #${order.orderNumber}',
     );
   }
 
@@ -131,7 +131,7 @@ class OrderSuccessShareScreen extends StatelessWidget {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Dispatch to Melapalayam WhatsApp Group',
+                            'Dispatch to ZIPPO WhatsApp Group',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -143,7 +143,7 @@ class OrderSuccessShareScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Broadcast this formatted order ticket directly to local riders in the Melapalayam dispatch group for instant pickup.',
+                      'Broadcast this formatted order ticket directly to local riders in the ZIPPO dispatch group for instant pickup.',
                       style: TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                     const SizedBox(height: 12),

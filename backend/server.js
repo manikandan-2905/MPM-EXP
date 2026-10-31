@@ -15,15 +15,17 @@ app.use(express.json());
 // Routes
 const orderRoutes = require('./routes/orderRoutes');
 const riderRoutes = require('./routes/riderRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 app.use('/api/orders', orderRoutes);
 app.use('/api/riders', riderRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Root & Health Check Endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'online',
-    service: 'Melapalayam Express Backend',
+    service: 'ZIPPO Express Backend',
     region: 'Melapalayam, Tirunelveli',
     timestamp: new Date().toISOString(),
   });

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 
 class AppConstants {
   // Network Config
-  // static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
-  static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
+  static const String apiBaseUrl = 'http://10.0.2.2:5000/api'; // Local Development
+  // static const String apiBaseUrl = 'https://mpm-exp.onrender.com/api'; // Live Production (Render)
+
+  // Brand Identity
+  static const String appName = 'ZIPPO';
+  static const String appTagline = 'Trusted Local Goods Connection';
 
   // Regional Dispatch
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';

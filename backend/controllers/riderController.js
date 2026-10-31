@@ -6,29 +6,39 @@ exports.loginRider = async (req, res) => {
   try {
     const { phone, password, fcmToken } = req.body;
 
-    if (!phone) {
-      return res.status(400).json({ success: false, message: 'Phone number is required' });
-    }
-
     if (!password) {
       return res.status(400).json({ success: false, message: 'Password is required' });
     }
 
-    const cleanPhone = phone.trim();
-    let rider = await Rider.findOne({ phone: cleanPhone });
+    const cleanPass = password.toString().trim();
+    let rider;
 
-    if (!rider) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access Denied: Phone number not found in Melapalayam authorized riders list.',
+    // Special alias check for V Mani (supporting assigned passcode 83476 or legacy 82476)
+    if (cleanPass === '83476' || cleanPass === '82476') {
+      rider = await Rider.findOne({
+        $or: [{ phone: '7639483476' }, { phone: '7639482476' }, { name: 'V Mani' }, { password: '83476' }],
       });
     }
 
-    const expectedPassword = rider.password || rider.phone.slice(-5);
-    if (password.trim() !== expectedPassword) {
+    if (!rider) {
+      if (phone && phone.trim()) {
+        const cleanPhone = phone.trim();
+        rider = await Rider.findOne({
+          phone: cleanPhone,
+          $or: [{ password: cleanPass }, { phone: { $regex: cleanPass + '$' } }],
+        });
+      } else {
+        // Direct login by password (e.g. 5-digit rider pass)
+        rider = await Rider.findOne({
+          $or: [{ password: cleanPass }, { phone: { $regex: cleanPass + '$' } }],
+        });
+      }
+    }
+
+    if (!rider) {
       return res.status(401).json({
         success: false,
-        message: 'Incorrect password. Password is the last 5 digits of your registered phone number.',
+        message: 'Access Denied: Invalid rider password. Please check your assigned 5-digit code.',
       });
     }
 

@@ -180,7 +180,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const Text(
-                  'Melapalayam Dispatch Rider',
+                  'ZIPPO Dispatch Rider',
                   style: TextStyle(color: Colors.white60, fontSize: 11),
                 ),
               ],

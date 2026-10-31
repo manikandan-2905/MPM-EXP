@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferencesService {
@@ -120,6 +121,68 @@ class PreferencesService {
   static Future<void> clearRiderCompletedTrips() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('mpm_rider_completed_trips');
+  }
+
+  // Admin Session
+  static const String _keyAdminSession = 'mpm_admin_session';
+
+  static Future<void> saveAdminSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAdminSession, true);
+  }
+
+  static Future<bool> isAdminLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAdminSession) ?? false;
+  }
+
+  static Future<void> clearAdminSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyAdminSession);
+  }
+
+  // Global Orders Store (for offline sync & live admin monitoring)
+  static const String _keyGlobalOrders = 'mpm_global_all_orders';
+
+  static Future<void> saveOrderToStore(Map<String, dynamic> orderJson) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyGlobalOrders) ?? [];
+    final id = orderJson['_id'] ?? orderJson['id'] ?? orderJson['orderNumber'];
+
+    int existingIdx = -1;
+    for (int i = 0; i < list.length; i++) {
+      try {
+        final parsed = jsonDecode(list[i]);
+        final parsedId = parsed['_id'] ?? parsed['id'] ?? parsed['orderNumber'];
+        if (parsedId == id) {
+          existingIdx = i;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    final encoded = jsonEncode(orderJson);
+    if (existingIdx != -1) {
+      list[existingIdx] = encoded;
+    } else {
+      list.insert(0, encoded);
+    }
+    await prefs.setStringList(_keyGlobalOrders, list);
+  }
+
+  static Future<List<Map<String, dynamic>>> getStoredOrders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyGlobalOrders) ?? [];
+    final List<Map<String, dynamic>> result = [];
+    for (final item in list) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map<String, dynamic>) {
+          result.add(decoded);
+        }
+      } catch (_) {}
+    }
+    return result;
   }
 }
 

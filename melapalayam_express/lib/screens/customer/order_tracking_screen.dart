@@ -21,7 +21,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   Timer? _pollingTimer;
 
   final List<Map<String, dynamic>> _milestones = [
-    {'key': 'ORDER_PLACED', 'title': 'Order Placed', 'desc': 'Waiting for Melapalayam rider to accept'},
+    {'key': 'ORDER_PLACED', 'title': 'Order Placed', 'desc': 'Waiting for ZIPPO rider to accept'},
     {'key': 'RIDER_ASSIGNED', 'title': 'Rider Assigned', 'desc': 'Rider is on the way to the pickup shop/spot'},
     {'key': 'ITEM_PURCHASED', 'title': 'Items Picked / Purchased', 'desc': 'Rider has verified and collected your items'},
     {'key': 'ON_THE_WAY', 'title': 'On The Way', 'desc': 'Rider is en route to your delivery location'},
@@ -308,7 +308,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               children: [
                 const Text('Assigned Rider', style: TextStyle(color: Color(0xFFD1FAE5), fontSize: 11)),
                 Text(
-                  _order!.riderName ?? 'Melapalayam Rider',
+                  _order!.riderName ?? 'ZIPPO Rider',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 Text(

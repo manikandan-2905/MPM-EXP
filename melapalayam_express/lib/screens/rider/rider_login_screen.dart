@@ -3,6 +3,7 @@ import '../../services/api_service.dart';
 import '../../services/preferences_service.dart';
 import '../../services/notification_service.dart';
 import 'rider_dashboard_screen.dart';
+import '../admin/admin_shell_screen.dart';
 
 class RiderLoginScreen extends StatefulWidget {
   const RiderLoginScreen({Key? key}) : super(key: key);
@@ -12,7 +13,6 @@ class RiderLoginScreen extends StatefulWidget {
 }
 
 class _RiderLoginScreenState extends State<RiderLoginScreen> {
-  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -21,6 +21,12 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
   void initState() {
     super.initState();
     _checkExistingSession();
+  }
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkExistingSession() async {
@@ -40,19 +46,22 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
   }
 
   Future<void> _login() async {
-    final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (phone.length < 10) {
+    if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter valid 10-digit registered rider phone')),
+        const SnackBar(content: Text('Please enter password or passcode')),
       );
       return;
     }
 
-    if (password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your password (last 5 digits of phone)')),
+    if (password == 'mani2006') {
+      _passwordController.clear();
+      await PreferencesService.saveAdminSession();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminShellScreen()),
       );
       return;
     }
@@ -62,8 +71,7 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
     try {
       final fcmToken = await NotificationService().getCachedOrFreshToken();
       final rider = await ApiService().loginRider(
-        phone,
-        password: password,
+        password,
         fcmToken: fcmToken,
       );
 
@@ -113,18 +121,22 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Image.asset(
                   'assets/logo.png',
                   width: 64,
                   height: 64,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(height: 20),
               const Text(
-                'Melapalayam Rider Portal',
+                'ZIPPO Rider Portal',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -138,28 +150,15 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
               ),
               const SizedBox(height: 24),
               TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Registered Mobile Number',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  prefixIcon: const Icon(Icons.phone_android, color: Color(0xFF10B981)),
-                  prefixText: '+91 ',
-                  prefixStyle: const TextStyle(color: Colors.white),
-                  filled: true,
-                  fillColor: const Color(0xFF1E293B),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.text,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Rider Password / Passcode',
                   labelStyle: const TextStyle(color: Colors.white70),
+                  hintText: 'Enter your assigned password (e.g. 02266)',
+                  hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
                   prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF10B981)),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -171,6 +170,14 @@ class _RiderLoginScreenState extends State<RiderLoginScreen> {
                   filled: true,
                   fillColor: const Color(0xFF1E293B),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF334155)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

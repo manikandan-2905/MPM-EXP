@@ -31,8 +31,8 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'melapalayam_delivery_milestones',
-    'Melapalayam Delivery Milestones',
+    'zippo_delivery_milestones',
+    'ZIPPO Delivery Milestones',
     description: 'High-priority alerts for order pickup, status updates, and rider phone calls',
     importance: Importance.max,
     playSound: true,

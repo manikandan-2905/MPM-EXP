@@ -101,6 +101,23 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    paymentMode: {
+      type: String,
+      enum: ['Cash', 'UPI'],
+      default: 'Cash',
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancellationReason: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -112,7 +129,7 @@ orderSchema.pre('validate', function (next) {
   if (!this.orderNumber) {
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const dateCode = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    this.orderNumber = `MPM-${dateCode}-${randomSuffix}`;
+    this.orderNumber = `ZIPPO-${dateCode}-${randomSuffix}`;
   }
   if (!this.deliveryPin) {
     this.deliveryPin = Math.floor(1000 + Math.random() * 9000).toString();

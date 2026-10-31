@@ -5,6 +5,11 @@ class RiderModel {
   final bool isOnline;
   final int totalDeliveries;
   final int totalEarnings;
+  final int totalOrders;
+  final int todayOrders;
+  final int todayEarnings;
+  final int cashEarnings;
+  final int upiEarnings;
 
   RiderModel({
     required this.id,
@@ -13,6 +18,11 @@ class RiderModel {
     required this.isOnline,
     required this.totalDeliveries,
     required this.totalEarnings,
+    this.totalOrders = 0,
+    this.todayOrders = 0,
+    this.todayEarnings = 0,
+    this.cashEarnings = 0,
+    this.upiEarnings = 0,
   });
 
   factory RiderModel.fromJson(Map<String, dynamic> json) {
@@ -21,8 +31,13 @@ class RiderModel {
       name: json['name'] ?? '',
       phone: json['phone'] ?? '',
       isOnline: json['isOnline'] ?? false,
-      totalDeliveries: json['totalDeliveries'] ?? 0,
+      totalDeliveries: json['totalDeliveries'] ?? json['totalOrders'] ?? 0,
       totalEarnings: json['totalEarnings'] ?? 0,
+      totalOrders: json['totalOrders'] ?? json['totalDeliveries'] ?? 0,
+      todayOrders: json['todayOrders'] ?? 0,
+      todayEarnings: json['todayEarnings'] ?? 0,
+      cashEarnings: json['cashEarnings'] ?? 0,
+      upiEarnings: json['upiEarnings'] ?? 0,
     );
   }
 
@@ -34,6 +49,11 @@ class RiderModel {
       'isOnline': isOnline,
       'totalDeliveries': totalDeliveries,
       'totalEarnings': totalEarnings,
+      'totalOrders': totalOrders,
+      'todayOrders': todayOrders,
+      'todayEarnings': todayEarnings,
+      'cashEarnings': cashEarnings,
+      'upiEarnings': upiEarnings,
     };
   }
 }

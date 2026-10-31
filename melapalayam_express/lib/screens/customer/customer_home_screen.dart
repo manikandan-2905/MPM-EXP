@@ -12,6 +12,8 @@ import '../../services/api_service.dart';
 import '../../services/preferences_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/legal_warning_banner.dart';
+import '../admin/admin_login_screen.dart';
+import '../admin/admin_shell_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({Key? key}) : super(key: key);
@@ -28,7 +30,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   // Customer Form State
   String _activeTab = 'pickup'; // 'pickup' | 'buy'
-  int _activeRidersCount = 3;
+  int _activeRidersCount = 1;
   bool _isLoadingRiders = false;
   Timer? _pollingTimer;
 
@@ -453,7 +455,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Order placed successfully! Broadcasted to Melapalayam rider pool 🛵'),
+          content: Text('Order placed successfully! Broadcasted to ZIPPO rider pool 🛵'),
           backgroundColor: Color(0xFF059669),
         ),
       );
@@ -503,16 +505,45 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
+  Future<void> _openAdminConsole() async {
+    final isAdmin = await PreferencesService.isAdminLoggedIn();
+    if (!mounted) return;
+    if (isAdmin) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminShellScreen()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+      );
+    }
+  }
+
   // --- RIDER ACTIONS ---
 
   Future<void> _loginRider() async {
-    final phone = _riderLoginPhoneCtrl.text.trim();
     final password = _riderLoginPasswordCtrl.text.trim();
-    if (phone.isEmpty) return;
 
     if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter rider password (last 5 digits of mobile)')),
+        const SnackBar(content: Text('Please enter password or passcode')),
+      );
+      return;
+    }
+
+    if (password == 'mani2006') {
+      _riderLoginPasswordCtrl.clear();
+      await PreferencesService.saveAdminSession();
+      setState(() {
+        _isRiderLoading = false;
+        _currentViewMode = 'customer';
+      });
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminShellScreen()),
       );
       return;
     }
@@ -520,7 +551,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     setState(() => _isRiderLoading = true);
     try {
       final token = await NotificationService().getCachedOrFreshToken();
-      final rider = await _apiService.loginRider(phone, password: password, fcmToken: token);
+      final rider = await _apiService.loginRider(password, fcmToken: token);
 
       await PreferencesService.saveRiderSession(id: rider.id, name: rider.name, phone: rider.phone);
 
@@ -764,6 +795,736 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
+  Future<void> _launchPhone(String phone) async {
+    final clean = phone.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri.parse('tel:$clean');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _launchWhatsApp(String phone, String orderNumber) async {
+    final clean = phone.replaceAll(RegExp(r'\D'), '');
+    final fullPhone = clean.length == 10 ? '91$clean' : clean;
+    final text = Uri.encodeComponent('Vanakkam! Regarding ZIPPO order #$orderNumber.');
+    final url = Uri.parse('https://wa.me/$fullPhone?text=$text');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _showRiderCancelTripDialog() async {
+    if (_riderActiveTrip == null || _loggedInRider == null) return;
+    String selectedReason = 'Customer requested cancellation';
+    final reasons = [
+      'Customer requested cancellation',
+      'Store closed / Item unavailable',
+      'Customer unreachable / wrong address',
+      'Vehicle breakdown / Emergency',
+    ];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Text('Cancel Active Trip?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please select the reason for cancelling this trip. It will be logged in completed trips with a CANCELLED badge.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 12),
+              for (final r in reasons)
+                RadioListTile<String>(
+                  title: Text(r, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  value: r,
+                  groupValue: selectedReason,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  activeColor: const Color(0xFFDC2626),
+                  onChanged: (val) {
+                    if (val != null) setDlgState(() => selectedReason = val);
+                  },
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Go Back', style: TextStyle(color: Color(0xFF64748B))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirm Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true && _riderActiveTrip != null) {
+      final tripToCancel = _riderActiveTrip!;
+      try {
+        await _apiService.cancelOrder(tripToCancel.id, reason: selectedReason);
+      } catch (_) {}
+
+      final completedMap = {
+        'orderNumber': tripToCancel.orderNumber,
+        'items': tripToCancel.itemsList.join(', '),
+        'pickup': tripToCancel.pickupAddress,
+        'drop': tripToCancel.dropAddress,
+        'fare': 0,
+        'status': 'CANCELLED',
+        'isCancelled': true,
+        'reason': selectedReason,
+        'paymentMode': 'Cancelled',
+        'completedAt': DateTime.now().toIso8601String(),
+      };
+
+      await PreferencesService.saveRiderCompletedTrip(jsonEncode(completedMap));
+      await PreferencesService.clearRiderActiveOrderId();
+
+      setState(() {
+        _riderCompletedTrips.insert(0, completedMap);
+        _riderActiveTrip = null;
+        _riderOtpCtrl.clear();
+        _riderTab = 'completed';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Trip #${tripToCancel.orderNumber} cancelled and recorded.'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+      _fetchRiderPool();
+    }
+  }
+
+  // Customer Orders History Bottom Sheet (User order details, contact numbers & live track reopening)
+  Future<void> _openCustomerHistorySheet() async {
+    final stored = await PreferencesService.getStoredOrders();
+    final List<OrderModel> orders = [];
+    final Set<String> seen = {};
+
+    if (_activeOrder != null) {
+      orders.add(_activeOrder!);
+      seen.add(_activeOrder!.id);
+      seen.add(_activeOrder!.orderNumber);
+    }
+
+    for (final s in stored) {
+      try {
+        final om = OrderModel.fromJson(s);
+        final key = om.id.isNotEmpty ? om.id : om.orderNumber;
+        if (!seen.contains(key) && !seen.contains(om.orderNumber)) {
+          orders.add(om);
+          seen.add(key);
+          seen.add(om.orderNumber);
+        }
+      } catch (_) {}
+    }
+
+    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(modalCtx).size.height * 0.88,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE5F6DE),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.receipt_long_rounded,
+                            size: 20,
+                            color: Color(0xFF3A642B),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'My Orders & History',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              '${orders.length} order${orders.length == 1 ? "" : "s"} recorded on this device',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(modalCtx),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Color(0xFFE2E8F0)),
+
+              Expanded(
+                child: orders.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.history_toggle_off_rounded, size: 52, color: Color(0xFF94A3B8)),
+                              SizedBox(height: 12),
+                              Text(
+                                'No past orders yet',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF334155)),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                'Book a Pickup & Drop or Buy For Me delivery to track it and contact your rider anytime here.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        itemCount: orders.length + 1,
+                        itemBuilder: (ctx, index) {
+                          if (index == orders.length) {
+                            return _buildCustomerHistoryHelplineCard();
+                          }
+                          final order = orders[index];
+                          return _buildCustomerHistoryOrderCard(order, modalCtx);
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCustomerHistoryOrderCard(OrderModel order, BuildContext modalCtx) {
+    final isDelivered = order.status == 'DELIVERED';
+    final isCancelled = order.status == 'CANCELLED';
+    final isOngoing = !isDelivered && !isCancelled;
+
+    Color badgeBg;
+    Color badgeText;
+    String statusLabel;
+
+    switch (order.status) {
+      case 'DELIVERED':
+        badgeBg = const Color(0xFFE5F6DE);
+        badgeText = const Color(0xFF3A642B);
+        statusLabel = '✅ DELIVERED';
+        break;
+      case 'CANCELLED':
+        badgeBg = const Color(0xFFFEE2E2);
+        badgeText = const Color(0xFFDC2626);
+        statusLabel = '❌ CANCELLED';
+        break;
+      case 'ON_THE_WAY':
+        badgeBg = const Color(0xFFFEF3C7);
+        badgeText = const Color(0xFFD97706);
+        statusLabel = '🚀 ON THE WAY';
+        break;
+      case 'ITEM_PURCHASED':
+        badgeBg = const Color(0xFFF3E8FF);
+        badgeText = const Color(0xFF7E22CE);
+        statusLabel = '🛍️ ITEMS BOUGHT';
+        break;
+      case 'RIDER_ASSIGNED':
+        badgeBg = const Color(0xFFDBEAFE);
+        badgeText = const Color(0xFF1D4ED8);
+        statusLabel = '🛵 RIDER ASSIGNED';
+        break;
+      default:
+        badgeBg = const Color(0xFFF1F5F9);
+        badgeText = const Color(0xFF475569);
+        statusLabel = '⏳ SEARCHING RIDER';
+    }
+
+    final hasRider = order.assignedRider != null || (order.riderName != null && order.riderName!.isNotEmpty);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isOngoing ? const Color(0xFF76C457).withOpacity(0.6) : const Color(0xFFE2E8F0),
+          width: isOngoing ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isOngoing
+                ? const Color(0xFF76C457).withOpacity(0.1)
+                : Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Order Number + Status Badge + Fare
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      '#${order.orderNumber}',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: badgeBg,
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: badgeText),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '₹${order.fare}',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // Order type and items
+          Row(
+            children: [
+              Icon(
+                order.orderType == 'BUY_FOR_ME' ? Icons.shopping_bag_outlined : Icons.inventory_2_outlined,
+                size: 13,
+                color: const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  order.orderType == 'BUY_FOR_ME'
+                      ? 'Buy For Me (${order.shopName ?? "Market"})'
+                      : 'Pickup & Drop (${order.category})',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                ),
+              ),
+            ],
+          ),
+          if (order.itemsList.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              order.itemsList.join(', '),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 8),
+
+          // Landmarks & Contact numbers
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Pickup
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.circle, size: 8, color: Color(0xFF10B981)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.pickupAddress,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (order.pickupPhone != null && order.pickupPhone!.isNotEmpty)
+                            InkWell(
+                              onTap: () => _launchPhone(order.pickupPhone!),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.phone, size: 10, color: Color(0xFF0284C7)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Pickup Contact: ${order.pickupPhone}',
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                ),
+                // Drop
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_on, size: 10, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.dropAddress,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (order.dropPhone != null && order.dropPhone!.isNotEmpty)
+                            InkWell(
+                              onTap: () => _launchPhone(order.dropPhone!),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.phone, size: 10, color: Color(0xFF0284C7)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Drop Contact: ${order.dropPhone}',
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // PICKED RIDER HIGHLIGHT CARD
+          if (hasRider) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFDCFCE7),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.two_wheeler_rounded, size: 16, color: Color(0xFF15803D)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              order.riderName ?? 'Assigned Rider',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF14532D)),
+                            ),
+                            Text(
+                              order.riderPhone ?? 'Rider on duty',
+                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF166534)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (order.riderPhone != null && order.riderPhone!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF15803D),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.phone, size: 12),
+                            label: const Text('Call Rider', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => _launchPhone(order.riderPhone!),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF25D366),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.chat, size: 12),
+                            label: const Text('WhatsApp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => _launchWhatsApp(order.riderPhone!, order.orderNumber),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 10),
+
+          // Bottom Action: Reopen Live Tracking if ongoing, or view full details
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Placed: ${_formatTripTime(order.createdAt.toIso8601String())}',
+                style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isOngoing ? const Color(0xFF76C457) : const Color(0xFF0F172A),
+                  foregroundColor: isOngoing ? const Color(0xFF0F172A) : Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                ),
+                icon: Icon(
+                  isOngoing ? Icons.navigation_rounded : Icons.visibility_rounded,
+                  size: 13,
+                ),
+                label: Text(
+                  isOngoing ? '📍 Live Track Order' : 'View Order Details',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+                ),
+                onPressed: () {
+                  Navigator.pop(modalCtx);
+                  setState(() {
+                    _activeOrder = order;
+                    _showTrackingModal = true;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerHistoryHelplineCard() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF334155)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.headset_mic_rounded, size: 18, color: Color(0xFF38BDF8)),
+              SizedBox(width: 8),
+              Text(
+                'ZIPPO Dispatch Control Room',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Need urgent support with any ongoing or previous delivery? Our central dispatch desk is available 24/7.',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.phone, size: 13),
+                  label: const Text('Call Dispatch Desk', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () => _launchPhone('9363302266'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.chat, size: 13),
+                  label: const Text('WhatsApp Help', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () => _launchWhatsApp('9363302266', 'HELP'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerHistoryIconButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openCustomerHistorySheet(),
+        borderRadius: BorderRadius.circular(9999),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A).withOpacity(0.75),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFF334155).withOpacity(0.8)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(
+                Icons.receipt_long_rounded,
+                color: Color(0xFFE2E8F0),
+                size: 20,
+              ),
+              if (_activeOrder != null)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF76C457),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF76C457).withOpacity(0.8),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ==========================================
   // ROOT BUILD METHOD
   // ==========================================
@@ -987,26 +1748,31 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.asset(
-                          'assets/logo.png',
-                          width: 42,
-                          height: 42,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFF76C457),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF76C457).withOpacity(0.5),
-                                  blurRadius: 6,
-                                  spreadRadius: 2,
-                                ),
-                              ],
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            'assets/logo.png',
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 44,
+                              height: 44,
+                              color: const Color(0xFFF97316),
+                              child: const Icon(Icons.two_wheeler_rounded, color: Colors.white, size: 24),
                             ),
                           ),
                         ),
@@ -1018,19 +1784,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           Row(
                             children: [
                               const Text(
-                                'MPM Express',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, letterSpacing: -0.2),
+                                'ZIPPO',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20,
+                                  letterSpacing: 0.8,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF76C457),
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFEA580C), Color(0xFFF97316)],
+                                  ),
                                   borderRadius: BorderRadius.circular(9999),
                                 ),
                                 child: const Text(
                                   'மேலப்பாளையம்',
-                                  style: TextStyle(color: Color(0xFF0F172A), fontSize: 9.5, fontWeight: FontWeight.w900),
+                                  style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w900),
                                 ),
                               ),
                             ],
@@ -1140,24 +1913,33 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
               const SizedBox(height: 16),
 
-              // Tactile Pill Service Buttons (Round Corner + Sliding Smooth Style)
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A).withOpacity(0.55),
-                  border: Border.all(color: const Color(0xFF334155).withOpacity(0.7)),
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildServiceTabButton('pickup', Icons.inventory_2_outlined, 'Pickup & Drop'),
+              // Tactile Pill Service Buttons + History Icon Button Row
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A).withOpacity(0.55),
+                        border: Border.all(color: const Color(0xFF334155).withOpacity(0.7)),
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildServiceTabButton('pickup', Icons.inventory_2_outlined, 'Pickup & Drop'),
+                          ),
+                          Expanded(
+                            child: _buildServiceTabButton('buy', Icons.shopping_bag_outlined, 'Buy For Me'),
+                          ),
+                        ],
+                      ),
                     ),
-                    Expanded(
-                      child: _buildServiceTabButton('buy', Icons.shopping_bag_outlined, 'Buy For Me'),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Separate History Icon Button (User Order Details, Contact & Live Track)
+                  _buildCustomerHistoryIconButton(),
+                ],
               ),
             ],
           ),
@@ -2205,7 +2987,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       _buildStepperStep(
                         isCompleted: true,
                         title: 'Order Placed',
-                        subtitle: 'Broadcasted to Melapalayam Rider Pool',
+                        subtitle: 'Broadcasted to ZIPPO Rider Pool',
                       ),
                       _buildStepperStep(
                         isCompleted: status == 'RIDER_ASSIGNED' || status == 'ITEM_PURCHASED' || status == 'ON_THE_WAY' || status == 'DELIVERED',
@@ -2439,7 +3221,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
           const SizedBox(height: 12),
           const Text('Rider Partner Portal', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF0F172A))),
-          const Text('Melapalayam Dispatch Access', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const Text('ZIPPO Dispatch Partner', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(18),
@@ -2454,24 +3236,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('REGISTERED PHONE (பதிவுசெய்த கைபேசி எண்)',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _riderLoginPhoneCtrl,
-                  keyboardType: TextInputType.phone,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  decoration: _cleanInputDecoration('e.g. 9363302266'),
-                ),
-                const SizedBox(height: 12),
-                const Text('RIDER PASSWORD (கடவுச்சொல் - கடைசி 5 எண்கள்)',
+                const Text('PORTAL ACCESS PASSWORD (கடவுச்சொல்)',
                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF475569))),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _riderLoginPasswordCtrl,
                   obscureText: _obscureRiderPassword,
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  decoration: _cleanInputDecoration('').copyWith(
+                  decoration: _cleanInputDecoration('Rider Passcode or Admin Key').copyWith(
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureRiderPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
@@ -2496,7 +3268,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     onPressed: _isRiderLoading ? null : _loginRider,
                     child: _isRiderLoading
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)))
-                        : const Text('Access Dashboard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5)),
+                        : const Text('Access Dispatch Portal', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -2632,7 +3404,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               const SizedBox(height: 2),
               const Text(
-                'Delivery Partner • Melapalayam Hub',
+                'Delivery Partner • ZIPPO Hub',
                 style: TextStyle(
                   color: Color(0xFFA7DF92),
                   fontSize: 11.5,
@@ -2895,7 +3667,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Order Pool (Melapalayam)',
+                  'Order Pool (ZIPPO)',
                   style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
                 ),
                 Container(
@@ -3430,6 +4202,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Center(
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+                      icon: const Icon(Icons.cancel_outlined, size: 14),
+                      label: const Text(
+                        'Issue with order? Cancel & Move to Completed',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () => _showRiderCancelTripDialog(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -3520,24 +4304,58 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE5F6DE),
-                              borderRadius: BorderRadius.circular(9999),
-                            ),
-                            child: const Text('✅ DELIVERED',
-                                style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF3A642B))),
+                          Builder(
+                            builder: (ctx) {
+                              final status = (trip['status'] ?? 'DELIVERED').toString().toUpperCase();
+                              final isCancelled = status == 'CANCELLED' || trip['isCancelled'] == true;
+                              final isPending = status == 'PENDING' || status == 'ON_THE_WAY' || status == 'RIDER_ASSIGNED';
+
+                              final badgeColor = isCancelled
+                                  ? const Color(0xFFFEE2E2)
+                                  : isPending
+                                      ? const Color(0xFFFEF3C7)
+                                      : const Color(0xFFE5F6DE);
+                              final badgeTextColor = isCancelled
+                                  ? const Color(0xFFDC2626)
+                                  : isPending
+                                      ? const Color(0xFFD97706)
+                                      : const Color(0xFF3A642B);
+                              final badgeText = isCancelled
+                                  ? '❌ CANCELLED'
+                                  : isPending
+                                      ? '⏳ PENDING'
+                                      : '✅ DELIVERED';
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: badgeColor,
+                                  borderRadius: BorderRadius.circular(9999),
+                                ),
+                                child: Text(
+                                  badgeText,
+                                  style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: badgeTextColor),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
-                      Text(
-                        '+₹${trip['fare']}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF3A642B),
-                        ),
+                      Builder(
+                        builder: (ctx) {
+                          final status = (trip['status'] ?? 'DELIVERED').toString().toUpperCase();
+                          final isCancelled = status == 'CANCELLED' || trip['isCancelled'] == true;
+
+                          return Text(
+                            isCancelled ? '₹0 (Cancelled)' : '+₹${trip['fare']}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: isCancelled ? const Color(0xFFDC2626) : const Color(0xFF3A642B),
+                              decoration: isCancelled ? TextDecoration.lineThrough : null,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -3569,29 +4387,75 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         _formatTripTime(trip['completedAt']),
                         style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: trip['paymentMode'] == 'UPI'
-                              ? const Color(0xFFEFF6FF)
-                              : const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: trip['paymentMode'] == 'UPI'
-                                ? const Color(0xFFBFDBFE)
-                                : const Color(0xFFFDE68A),
-                          ),
-                        ),
-                        child: Text(
-                          trip['paymentMode'] == 'UPI' ? '📱 UPI Received' : '💵 Cash Handover',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: trip['paymentMode'] == 'UPI'
-                                ? const Color(0xFF1D4ED8)
-                                : const Color(0xFFB45309),
-                          ),
-                        ),
+                      Builder(
+                        builder: (ctx) {
+                          final status = (trip['status'] ?? 'DELIVERED').toString().toUpperCase();
+                          final isCancelled = status == 'CANCELLED' || trip['isCancelled'] == true;
+                          final isPending = status == 'PENDING' || status == 'ON_THE_WAY' || status == 'RIDER_ASSIGNED';
+
+                          if (isCancelled) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFFECACA)),
+                              ),
+                              child: Text(
+                                trip['reason'] != null ? '⚠️ ${trip['reason']}' : '⚠️ Order Cancelled',
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            );
+                          }
+
+                          if (isPending) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: const Text(
+                                '⏳ In Progress',
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFD97706),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: trip['paymentMode'] == 'UPI'
+                                  ? const Color(0xFFEFF6FF)
+                                  : const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: trip['paymentMode'] == 'UPI'
+                                    ? const Color(0xFFBFDBFE)
+                                    : const Color(0xFFFDE68A),
+                              ),
+                            ),
+                            child: Text(
+                              trip['paymentMode'] == 'UPI' ? '📱 UPI Received' : '💵 Cash Handover',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: trip['paymentMode'] == 'UPI'
+                                    ? const Color(0xFF1D4ED8)
+                                    : const Color(0xFFB45309),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -40,7 +40,7 @@ ${order.itemsList.map((item, idx) => `   ${idx + 1}. ${item}`).join('\n')}
 📞 *Customer Contact:* ${order.customerPhone}`;
   }
 
-  return `🛵 *MELAPALAYAM DISPATCH ALERT* 🛵
+  return `🛵 *ZIPPO DISPATCH ALERT* 🛵
 ${urgentTag}*Order ID:* ${order.orderNumber}
 *Type:* ${categoryIcon} ${order.orderType === 'PICKUP_DROP' ? `Pickup & Drop (${order.category})` : 'Buy For Me'}
 *Fare:* ₹${order.fare} (${order.estimatedDistanceKm} km est.)
@@ -298,7 +298,7 @@ exports.updateMilestone = async (req, res) => {
 exports.completeDelivery = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { riderId, deliveryPin, isBypass } = req.body;
+    const { riderId, deliveryPin, isBypass, paymentMode } = req.body;
 
     const order = await Order.findOne({ _id: orderId, assignedRider: riderId }).populate('assignedRider', 'name phone');
     if (!order) {
@@ -319,15 +319,30 @@ exports.completeDelivery = async (req, res) => {
       }
     }
 
+    const cleanPaymentMode = (paymentMode && paymentMode.toString().trim().toUpperCase() === 'UPI') ? 'UPI' : 'Cash';
+    const isUpi = cleanPaymentMode === 'UPI';
+
     order.status = 'DELIVERED';
     order.isOtpBypassed = Boolean(isBypass);
+    order.paymentMode = cleanPaymentMode;
+    order.completedAt = new Date();
     await order.save();
 
-    // Increment Rider Stats (Total Deliveries + Earnings)
+    // Increment Rider Stats (Total Deliveries + Earnings + Today metrics + Cash/UPI breakdown)
     await Rider.findByIdAndUpdate(riderId, {
       $inc: {
         totalDeliveries: 1,
+        totalOrders: 1,
         totalEarnings: order.fare,
+        todayOrders: 1,
+        todayEarnings: order.fare,
+        cashEarnings: isUpi ? 0 : order.fare,
+        upiEarnings: isUpi ? order.fare : 0,
+        todayCashOrders: isUpi ? 0 : 1,
+        todayUpiOrders: isUpi ? 1 : 0,
+      },
+      $set: {
+        lastActiveDate: new Date(),
       },
     });
 
@@ -335,7 +350,7 @@ exports.completeDelivery = async (req, res) => {
     await sendMilestoneNotification({
       token: order.customerFcmToken,
       title: '✅ Order Delivered!',
-      body: `Your order #${order.orderNumber} has been delivered successfully. Thank you for choosing Melapalayam Express!`,
+      body: `Your order #${order.orderNumber} has been delivered successfully. Thank you for choosing ZIPPO!`,
       data: {
         orderId: order._id.toString(),
         orderNumber: order.orderNumber,
@@ -377,6 +392,8 @@ exports.cancelOrder = async (req, res) => {
     }
 
     order.status = 'CANCELLED';
+    order.cancelledAt = new Date();
+    order.cancellationReason = reason || 'Order cancelled';
     await order.save();
 
     return res.status(200).json({
