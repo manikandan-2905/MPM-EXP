@@ -123,6 +123,11 @@ class PreferencesService {
     await prefs.remove('mpm_rider_completed_trips');
   }
 
+  static Future<void> setRiderCompletedTrips(List<String> trips) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('mpm_rider_completed_trips', trips);
+  }
+
   // Admin Session
   static const String _keyAdminSession = 'mpm_admin_session';
 
@@ -170,6 +175,26 @@ class PreferencesService {
     await prefs.setStringList(_keyGlobalOrders, list);
   }
 
+  static Future<void> removeOrderFromStore(String orderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyGlobalOrders) ?? [];
+    list.removeWhere((item) {
+      try {
+        final parsed = jsonDecode(item);
+        final id = parsed['_id'] ?? parsed['id'] ?? parsed['orderNumber'];
+        return id == orderId;
+      } catch (_) {
+        return false;
+      }
+    });
+    await prefs.setStringList(_keyGlobalOrders, list);
+  }
+
+  static Future<void> clearStoredOrders() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyGlobalOrders);
+  }
+
   static Future<List<Map<String, dynamic>>> getStoredOrders() async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_keyGlobalOrders) ?? [];
@@ -185,4 +210,3 @@ class PreferencesService {
     return result;
   }
 }
-

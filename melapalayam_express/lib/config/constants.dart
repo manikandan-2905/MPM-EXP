@@ -13,6 +13,12 @@ class AppConstants {
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';
   static const String defaultWhatsAppGroupUrl = 'https://chat.whatsapp.com/EXAMPLE_MELAPALAYAM_DISPATCH';
 
+  // Developer & Founder Support Desk
+  static const String supportName = 'Mani';
+  static const String supportRole = 'Developer & Founder';
+  static const String supportPhone = '7639483476';
+  static const String supportWhatsApp = '7639483476';
+
   // Fare Engine Constants
   static const int baseFare = 30; // ₹30 for first 2 km
   static const double baseKm = 2.0;
@@ -61,6 +67,17 @@ class AppConstants {
     {'id': 'Documents', 'label': 'Keys / Docs', 'emoji': '🔑', 'title': 'Keys / Urgent Documents'},
     {'id': 'Tailoring', 'label': 'Tailoring', 'emoji': '🧵', 'title': 'Tailoring / Clothes'},
     {'id': 'Custom', 'label': 'Other / தனி', 'emoji': '✍️', 'title': 'Custom Request'},
+  ];
+
+  // Flat category list for Pickup & Drop form ChoiceChips
+  static const List<String> pickupCategories = [
+    'Food',
+    'Meat',
+    'Medicines',
+    'Documents',
+    'Tailoring',
+    'Grocery',
+    'Custom',
   ];
 
   // Prohibited Items Warning (Tamil & English)

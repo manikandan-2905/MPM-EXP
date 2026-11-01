@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../config/constants.dart';
 import '../../services/api_service.dart';
 import '../../services/preferences_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/location_address_field.dart';
 import 'order_success_share_screen.dart';
 
 class BuyForMeFormScreen extends StatefulWidget {
@@ -35,7 +35,6 @@ class _BuyForMeFormScreenState extends State<BuyForMeFormScreen> {
   ];
 
   bool _isUrgent = false;
-  bool _isDetectingGps = false;
   bool _isSubmitting = false;
   double? _dropLat;
   double? _dropLng;
@@ -84,36 +83,12 @@ class _BuyForMeFormScreenState extends State<BuyForMeFormScreen> {
     return AppConstants.baseFare + distanceCost + urgentCost;
   }
 
-  Future<void> _detectGpsDrop() async {
-    setState(() => _isDetectingGps = true);
-    try {
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      setState(() {
-        _dropLat = pos.latitude;
-        _dropLng = pos.longitude;
-        if (_deliveryAddressController.text.isEmpty) {
-          _deliveryAddressController.text = 'GPS Pin (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Delivery GPS captured successfully!'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('GPS Error: $e'), backgroundColor: Colors.redAccent),
-      );
-    } finally {
-      setState(() => _isDetectingGps = false);
-    }
+  // Called when LocationAddressField resolves a GPS coordinate
+  void _onDropLocationPicked(double lat, double lng) {
+    setState(() {
+      _dropLat = lat;
+      _dropLng = lng;
+    });
   }
 
   Future<void> _submitOrder() async {
@@ -277,20 +252,12 @@ class _BuyForMeFormScreenState extends State<BuyForMeFormScreen> {
 
             _buildSectionHeader('4. Delivery Destination'),
             const SizedBox(height: 10),
-            TextFormField(
+            LocationAddressField(
               controller: _deliveryAddressController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration(
-                'Delivery Landmark / House Address',
-                Icons.location_on,
-                suffix: IconButton(
-                  icon: _isDetectingGps
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.my_location, color: Color(0xFF10B981)),
-                  tooltip: '1-Tap Detect Current GPS',
-                  onPressed: _detectGpsDrop,
-                ),
-              ),
+              label: 'Delivery Landmark / House Address',
+              leadingIcon: Icons.location_on,
+              accentColor: const Color(0xFF0284C7),
+              onLocationPicked: _onDropLocationPicked,
               validator: (v) => v!.trim().isEmpty ? 'Delivery address is required' : null,
             ),
 

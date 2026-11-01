@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import '../../config/constants.dart';
 import '../../services/api_service.dart';
 import '../../services/preferences_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/location_address_field.dart';
 import 'order_success_share_screen.dart';
 
 class PickupDropFormScreen extends StatefulWidget {
@@ -37,8 +37,6 @@ class _PickupDropFormScreenState extends State<PickupDropFormScreen> {
   bool _isUrgent = false;
   bool _isSenderMe = true;
   bool _isReceiverMe = false;
-  bool _isDetectingGpsPickup = false;
-  bool _isDetectingGpsDrop = false;
   bool _isSubmitting = false;
 
   double? _pickupLat;
@@ -79,63 +77,19 @@ class _PickupDropFormScreenState extends State<PickupDropFormScreen> {
     return AppConstants.baseFare + distanceCost + urgentCost;
   }
 
-  // 1-Tap Current GPS detection
-  Future<void> _detectCurrentLocation({required bool isPickup}) async {
+  // Called when LocationAddressField resolves a GPS or map tap
+  void _onPickupLocationPicked(double lat, double lng) {
     setState(() {
-      if (isPickup) _isDetectingGpsPickup = true;
-      else _isDetectingGpsDrop = true;
+      _pickupLat = lat;
+      _pickupLng = lng;
     });
+  }
 
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('Location permission denied');
-        }
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      setState(() {
-        if (isPickup) {
-          _pickupLat = position.latitude;
-          _pickupLng = position.longitude;
-          if (_pickupAddressController.text.isEmpty) {
-            _pickupAddressController.text = 'GPS Pin (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
-          }
-        } else {
-          _dropLat = position.latitude;
-          _dropLng = position.longitude;
-          if (_dropAddressController.text.isEmpty) {
-            _dropAddressController.text = 'GPS Pin (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
-          }
-        }
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'GPS coordinates captured for ${isPickup ? "Pickup" : "Drop"} spot!',
-          ),
-          backgroundColor: const Color(0xFF10B981),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not fetch GPS: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-    } finally {
-      setState(() {
-        if (isPickup) _isDetectingGpsPickup = false;
-        else _isDetectingGpsDrop = false;
-      });
-    }
+  void _onDropLocationPicked(double lat, double lng) {
+    setState(() {
+      _dropLat = lat;
+      _dropLng = lng;
+    });
   }
 
   Future<void> _submitOrder() async {
@@ -299,20 +253,12 @@ class _PickupDropFormScreenState extends State<PickupDropFormScreen> {
               decoration: _inputDecoration('Sender Mobile Number', Icons.phone_android, prefix: '+91 '),
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            LocationAddressField(
               controller: _pickupAddressController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration(
-                'Pickup Landmark / Street / Store',
-                Icons.location_on,
-                suffix: IconButton(
-                  icon: _isDetectingGpsPickup
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.my_location, color: Color(0xFF10B981)),
-                  tooltip: '1-Tap Detect Current GPS',
-                  onPressed: () => _detectCurrentLocation(isPickup: true),
-                ),
-              ),
+              label: 'Pickup Landmark / Street / Store',
+              leadingIcon: Icons.location_on,
+              accentColor: const Color(0xFF10B981),
+              onLocationPicked: _onPickupLocationPicked,
               validator: (v) => v!.trim().isEmpty ? 'Pickup location is required' : null,
             ),
 
@@ -345,20 +291,12 @@ class _PickupDropFormScreenState extends State<PickupDropFormScreen> {
               decoration: _inputDecoration('Receiver Mobile Number', Icons.phone_android, prefix: '+91 '),
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            LocationAddressField(
               controller: _dropAddressController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration(
-                'Delivery Landmark / House Address',
-                Icons.flag,
-                suffix: IconButton(
-                  icon: _isDetectingGpsDrop
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.my_location, color: Color(0xFF10B981)),
-                  tooltip: '1-Tap Detect Current GPS',
-                  onPressed: () => _detectCurrentLocation(isPickup: false),
-                ),
-              ),
+              label: 'Delivery Landmark / House Address',
+              leadingIcon: Icons.flag,
+              accentColor: const Color(0xFF10B981),
+              onLocationPicked: _onDropLocationPicked,
               validator: (v) => v!.trim().isEmpty ? 'Drop address is required' : null,
             ),
 

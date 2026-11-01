@@ -9,6 +9,7 @@ import '../../config/constants.dart';
 import '../../models/order_model.dart';
 import '../../models/rider_model.dart';
 import '../../services/api_service.dart';
+import '../../services/location_service.dart';
 import '../../services/preferences_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/legal_warning_banner.dart';
@@ -83,6 +84,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   String _closingPaymentMode = 'Cash'; // 'Cash' | 'UPI'
   List<Map<String, dynamic>> _riderCompletedTrips = [];
 
+  // ── Address autocomplete state ─────────────────────────────────────
+  List<PlaceSuggestion> _pickupSuggestions = [];
+  List<PlaceSuggestion> _dropSuggestions = [];
+  List<PlaceSuggestion> _buyDropSuggestions = [];
+  bool _isSearchingPickup = false;
+  bool _isSearchingDrop = false;
+  bool _isSearchingBuyDrop = false;
+  bool _isGpsLoading = false;
+  String _gpsTarget = '';
+  Timer? _pickupDebounce;
+  Timer? _dropDebounce;
+  Timer? _buyDropDebounce;
+
 
   @override
   void initState() {
@@ -105,6 +119,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _pickupDebounce?.cancel();
+    _dropDebounce?.cancel();
+    _buyDropDebounce?.cancel();
     _primaryPhoneCtrl.dispose();
     _pickupPhoneCtrl.dispose();
     _dropPhoneCtrl.dispose();
@@ -168,17 +185,27 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     try {
       final cachedOrderId = await PreferencesService.getCustomerActiveOrderId();
       if (cachedOrderId != null && cachedOrderId.isNotEmpty) {
-        final order = await _apiService.getOrderById(cachedOrderId);
-        if (!order.isDelivered && !order.isCancelled) {
+        try {
+          final order = await _apiService.getOrderById(cachedOrderId);
+          if (!order.isDelivered && !order.isCancelled) {
+            if (mounted) {
+              setState(() {
+                _activeOrder = order;
+                _showTrackingModal = true;
+              });
+            }
+            return;
+          } else {
+            await PreferencesService.clearCustomerActiveOrderId();
+          }
+        } catch (_) {
+          await PreferencesService.clearCustomerActiveOrderId();
           if (mounted) {
             setState(() {
-              _activeOrder = order;
-              _showTrackingModal = true;
+              _activeOrder = null;
+              _showTrackingModal = false;
             });
           }
-          return;
-        } else {
-          await PreferencesService.clearCustomerActiveOrderId();
         }
       }
 
@@ -191,6 +218,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             setState(() {
               _activeOrder = activeOrder;
               _showTrackingModal = true;
+            });
+          }
+        } else {
+          await PreferencesService.clearCustomerActiveOrderId();
+          if (mounted && _activeOrder != null) {
+            setState(() {
+              _activeOrder = null;
+              _showTrackingModal = false;
             });
           }
         }
@@ -214,22 +249,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         return;
       }
 
-      final cachedId = await PreferencesService.getRiderActiveOrderId();
-      if (cachedId != null && cachedId.isNotEmpty) {
-        final order = await _apiService.getOrderById(cachedId);
-        if (!order.isDelivered && !order.isCancelled && order.assignedRiderId == _loggedInRider!.id) {
-          if (mounted) {
-            setState(() {
-              _riderActiveTrip = order;
-              _currentViewMode = 'rider';
-              _riderTab = 'active';
-            });
-          }
-          return;
-        }
-      }
-
       await PreferencesService.clearRiderActiveOrderId();
+      if (mounted) {
+        setState(() => _riderActiveTrip = null);
+      }
     } catch (_) {}
   }
 
@@ -245,7 +268,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           setState(() => _riderActiveTrip = updated);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (e.toString().contains('Order not found')) {
+        await PreferencesService.clearRiderActiveOrderId();
+        if (mounted) {
+          setState(() => _riderActiveTrip = null);
+        }
+      }
+    }
   }
 
   void _syncPhoneCheckboxes() {
@@ -278,45 +308,240 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _detectCurrentGPS(String target) async {
+    setState(() {
+      _isGpsLoading = true;
+      _gpsTarget = target;
+    });
     try {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      final gpsText = 'GPS Pin (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}), Melapalayam';
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission denied. Please enable in Settings.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return;
+      }
 
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final addressText = await LocationService.reverseGeocode(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (!mounted) return;
       setState(() {
         if (target == 'pickup') {
-          _pickupAddressCtrl.text = gpsText;
+          _pickupAddressCtrl.text = addressText;
+          _pickupSuggestions = [];
         } else if (target == 'drop') {
-          _dropAddressCtrl.text = gpsText;
+          _dropAddressCtrl.text = addressText;
+          _dropSuggestions = [];
         } else if (target == 'buyDrop') {
-          _buyDropCtrl.text = gpsText;
+          _buyDropCtrl.text = addressText;
+          _buyDropSuggestions = [];
         }
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('GPS Location captured!'), backgroundColor: Color(0xFF059669)),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'GPS: $addressText',
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF059669),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(12),
+        ),
       );
     } catch (e) {
-      // Fallback sample locations from prototype
-      final samples = [
-        "Near Big Mosque, Melapalayam (GPS 8.7042, 77.7285)",
-        "Periya Theru Corner, Bazaar (GPS 8.7051, 77.7301)",
-        "Al Ameen School Road, Kurichi (GPS 8.7020, 77.7265)"
-      ];
-      samples.shuffle();
-      final randomLoc = samples.first;
-      setState(() {
-        if (target == 'pickup') {
-          _pickupAddressCtrl.text = randomLoc;
-        } else if (target == 'drop') {
-          _dropAddressCtrl.text = randomLoc;
-        } else if (target == 'buyDrop') {
-          _buyDropCtrl.text = randomLoc;
-        }
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('GPS Error: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGpsLoading = false;
+          _gpsTarget = '';
+        });
+      }
     }
+  }
+
+  // ── Address autocomplete search handlers ──
+  void _onPickupAddressChanged(String query) {
+    _pickupDebounce?.cancel();
+    if (query.trim().length < 3) {
+      setState(() {
+        _pickupSuggestions = [];
+        _isSearchingPickup = false;
+      });
+      return;
+    }
+    setState(() => _isSearchingPickup = true);
+    _pickupDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final results = await LocationService.searchPlaces(query);
+      if (mounted) {
+        setState(() {
+          _pickupSuggestions = results;
+          _isSearchingPickup = false;
+        });
+      }
+    });
+  }
+
+  void _onDropAddressChanged(String query) {
+    _dropDebounce?.cancel();
+    if (query.trim().length < 3) {
+      setState(() {
+        _dropSuggestions = [];
+        _isSearchingDrop = false;
+      });
+      return;
+    }
+    setState(() => _isSearchingDrop = true);
+    _dropDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final results = await LocationService.searchPlaces(query);
+      if (mounted) {
+        setState(() {
+          _dropSuggestions = results;
+          _isSearchingDrop = false;
+        });
+      }
+    });
+  }
+
+  void _onBuyDropAddressChanged(String query) {
+    _buyDropDebounce?.cancel();
+    if (query.trim().length < 3) {
+      setState(() {
+        _buyDropSuggestions = [];
+        _isSearchingBuyDrop = false;
+      });
+      return;
+    }
+    setState(() => _isSearchingBuyDrop = true);
+    _buyDropDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final results = await LocationService.searchPlaces(query);
+      if (mounted) {
+        setState(() {
+          _buyDropSuggestions = results;
+          _isSearchingBuyDrop = false;
+        });
+      }
+    });
+  }
+
+  Widget _buildAddressSuggestionList({
+    required List<PlaceSuggestion> suggestions,
+    required bool isSearching,
+    required void Function(PlaceSuggestion) onSelect,
+  }) {
+    if (isSearching) {
+      return Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF76C457)),
+            ),
+            SizedBox(width: 8),
+            Text('Searching nearby Melapalayam places...', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+          ],
+        ),
+      );
+    }
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          children: suggestions.take(4).map((s) {
+            return InkWell(
+              onTap: () => onSelect(s),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF76C457)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF0F172A)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            s.fullAddress,
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   Future<void> _placeCustomerOrder() async {
@@ -478,7 +703,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           await PreferencesService.clearCustomerActiveOrderId();
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (e.toString().contains('Order not found')) {
+        await PreferencesService.clearCustomerActiveOrderId();
+        if (mounted) {
+          setState(() {
+            _activeOrder = null;
+            _showTrackingModal = false;
+          });
+        }
+      }
+    }
   }
 
   Future<void> _handleCustomerCancel() async {
@@ -578,7 +813,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     try {
       final isOnline = await _apiService.toggleOnlineStatus(_loggedInRider!.id, val);
       setState(() => _isRiderOnline = isOnline);
-      if (isOnline) _fetchRiderPool();
+      if (isOnline) { _fetchRiderPool(); _syncRiderCompletedTrips(); }
       _fetchLiveActiveRiders();
     } catch (_) {}
   }
@@ -587,6 +822,30 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     try {
       final pool = await _apiService.getAvailableOrders();
       if (mounted) setState(() => _riderPoolOrders = pool);
+    } catch (_) {}
+  }
+
+  Future<void> _syncRiderCompletedTrips() async {
+    if (_loggedInRider == null) return;
+    try {
+      final history = await _apiService.getAdminRiderHistory(
+        riderId: _loggedInRider!.id,
+        status: 'DELIVERED',
+      );
+      if (mounted) {
+        final List<Map<String, dynamic>> trips = history.map((o) => {
+          'orderNumber': o.orderNumber,
+          'fare': o.fare,
+          'itemsList': o.itemsList,
+          'createdAt': o.createdAt.toIso8601String(),
+          'pickupAddress': o.pickupAddress,
+          'dropAddress': o.dropAddress,
+        }).toList();
+        setState(() => _riderCompletedTrips = trips);
+        await PreferencesService.setRiderCompletedTrips(
+          trips.map((t) => jsonEncode(t)).toList(),
+        );
+      }
     } catch (_) {}
   }
 
@@ -814,6 +1073,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
+  Future<void> _launchWhatsAppEnquiry({String? message}) async {
+    final text = Uri.encodeComponent(message ?? 'Vanakkam Mani! I have an enquiry regarding ZIPPO MPM Express.');
+    final url = Uri.parse('https://wa.me/917639483476?text=$text');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Future<void> _showRiderCancelTripDialog() async {
     if (_riderActiveTrip == null || _loggedInRider == null) return;
     String selectedReason = 'Customer requested cancellation';
@@ -919,26 +1186,29 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   // Customer Orders History Bottom Sheet (User order details, contact numbers & live track reopening)
   Future<void> _openCustomerHistorySheet() async {
-    final stored = await PreferencesService.getStoredOrders();
-    final List<OrderModel> orders = [];
-    final Set<String> seen = {};
+    final phone = _primaryPhoneCtrl.text.trim();
+    List<OrderModel> orders = [];
 
-    if (_activeOrder != null) {
-      orders.add(_activeOrder!);
-      seen.add(_activeOrder!.id);
-      seen.add(_activeOrder!.orderNumber);
+    if (phone.isNotEmpty) {
+      try {
+        orders = await _apiService.getCustomerOrders(phone);
+      } catch (_) {
+        orders = [];
+      }
+    } else {
+      final stored = await PreferencesService.getStoredOrders();
+      for (final s in stored) {
+        try {
+          orders.add(OrderModel.fromJson(s));
+        } catch (_) {}
+      }
     }
 
-    for (final s in stored) {
-      try {
-        final om = OrderModel.fromJson(s);
-        final key = om.id.isNotEmpty ? om.id : om.orderNumber;
-        if (!seen.contains(key) && !seen.contains(om.orderNumber)) {
-          orders.add(om);
-          seen.add(key);
-          seen.add(om.orderNumber);
-        }
-      } catch (_) {}
+    if (_activeOrder != null) {
+      final exists = orders.any((o) => o.id == _activeOrder!.id || o.orderNumber == _activeOrder!.orderNumber);
+      if (!exists) {
+        orders.insert(0, _activeOrder!);
+      }
     }
 
     orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -1424,15 +1694,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Icon(Icons.headset_mic_rounded, size: 18, color: Color(0xFF38BDF8)),
               SizedBox(width: 8),
               Text(
-                'ZIPPO Dispatch Control Room',
+                'ZIPPO Founder & Support Desk',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 6),
           const Text(
-            'Need urgent support with any ongoing or previous delivery? Our central dispatch desk is available 24/7.',
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+            'Founder & Developer: Mani (+91 7639483476)\nHave any delivery questions, app enquiries, or order support? Contact directly 24/7.',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.4),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1446,8 +1716,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.phone, size: 13),
-                  label: const Text('Call Dispatch Desk', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _launchPhone('9363302266'),
+                  label: const Text('Call Mani', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () => _launchPhone('7639483476'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1460,8 +1730,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.chat, size: 13),
-                  label: const Text('WhatsApp Help', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                  onPressed: () => _launchWhatsApp('9363302266', 'HELP'),
+                  label: const Text('WhatsApp Mani', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () => _launchWhatsAppEnquiry(),
                 ),
               ),
             ],
@@ -1890,6 +2160,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Direct Support & Enquiry Trigger to Mani (Founder & Developer)
+                      GestureDetector(
+                        onTap: () => _launchWhatsAppEnquiry(),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withOpacity(0.9),
+                            border: Border.all(color: const Color(0xFF334155)),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.headset_mic_rounded, color: Color(0xFF38BDF8), size: 16),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2449,10 +2734,80 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _pickupAddressCtrl,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                decoration: _cleanInputDecoration('e.g. Periya Theru, Near Big Mosque, Melapalayam'),
+              Stack(
+                children: [
+                  TextField(
+                    controller: _pickupAddressCtrl,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                    decoration: _cleanInputDecoration('e.g. Periya Theru, Near Big Mosque, Melapalayam'),
+                    onChanged: _onPickupAddressChanged,
+                  ),
+                  if (_isGpsLoading && _gpsTarget == 'pickup')
+                    Positioned(
+                      left: 0, right: 0, bottom: 0,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                        child: const LinearProgressIndicator(
+                          minHeight: 3,
+                          backgroundColor: Color(0xFFE5F6DE),
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3A642B)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (_isGpsLoading && _gpsTarget == 'pickup')
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF3A642B))),
+                      SizedBox(width: 5),
+                      Text('Getting GPS address…', style: TextStyle(fontSize: 10, color: Color(0xFF3A642B), fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                )
+              else if (_isSearchingPickup)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF3A642B))),
+                      SizedBox(width: 5),
+                      Text('Searching places…', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                )
+              else if (_pickupAddressCtrl.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 5, left: 2),
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _pickupAddressCtrl.clear();
+                      _pickupSuggestions = [];
+                    }),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.cancel_rounded, size: 11, color: Color(0xFF94A3B8)),
+                        SizedBox(width: 3),
+                        Text('Clear address', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8), decoration: TextDecoration.underline)),
+                      ],
+                    ),
+                  ),
+                ),
+              _buildAddressSuggestionList(
+                suggestions: _pickupSuggestions,
+                isSearching: _isSearchingPickup,
+                onSelect: (s) {
+                  setState(() {
+                    _pickupAddressCtrl.text = s.fullAddress;
+                    _pickupSuggestions = [];
+                  });
+                  FocusScope.of(context).unfocus();
+                },
               ),
             ],
           ),
@@ -2513,11 +2868,83 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _dropAddressCtrl,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                decoration: _cleanInputDecoration('e.g. Melapalayam Bazaar Market'),
-                onChanged: (_) => setState(() {}),
+              Stack(
+                children: [
+                  TextField(
+                    controller: _dropAddressCtrl,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                    decoration: _cleanInputDecoration('e.g. Melapalayam Bazaar Market'),
+                    onChanged: (val) {
+                      setState(() {});
+                      _onDropAddressChanged(val);
+                    },
+                  ),
+                  if (_isGpsLoading && _gpsTarget == 'drop')
+                    Positioned(
+                      left: 0, right: 0, bottom: 0,
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                        child: const LinearProgressIndicator(
+                          minHeight: 3,
+                          backgroundColor: Color(0xFFFFECEC),
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFF43F5E)),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (_isGpsLoading && _gpsTarget == 'drop')
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFFF43F5E))),
+                      SizedBox(width: 5),
+                      Text('Getting GPS address…', style: TextStyle(fontSize: 10, color: Color(0xFFF43F5E), fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                )
+              else if (_isSearchingDrop)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF64748B))),
+                      SizedBox(width: 5),
+                      Text('Searching places…', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                )
+              else if (_dropAddressCtrl.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 5, left: 2),
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _dropAddressCtrl.clear();
+                      _dropSuggestions = [];
+                    }),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.cancel_rounded, size: 11, color: Color(0xFF94A3B8)),
+                        SizedBox(width: 3),
+                        Text('Clear address', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8), decoration: TextDecoration.underline)),
+                      ],
+                    ),
+                  ),
+                ),
+              _buildAddressSuggestionList(
+                suggestions: _dropSuggestions,
+                isSearching: _isSearchingDrop,
+                onSelect: (s) {
+                  setState(() {
+                    _dropAddressCtrl.text = s.fullAddress;
+                    _dropSuggestions = [];
+                  });
+                  FocusScope.of(context).unfocus();
+                },
               ),
 
               // Auto-detected Cross-Zone Notice
@@ -2587,11 +3014,83 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           const Text('DELIVERY ADDRESS (சேர்க்க வேண்டிய இடம்)',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
           const SizedBox(height: 4),
-          TextField(
-            controller: _buyDropCtrl,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            decoration: _cleanInputDecoration('e.g. Hameempuram 4th Street, Melapalayam'),
-            onChanged: (_) => setState(() {}),
+          Stack(
+            children: [
+              TextField(
+                controller: _buyDropCtrl,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                decoration: _cleanInputDecoration('e.g. Hameempuram 4th Street, Melapalayam'),
+                onChanged: (val) {
+                  setState(() {});
+                  _onBuyDropAddressChanged(val);
+                },
+              ),
+              if (_isGpsLoading && _gpsTarget == 'buyDrop')
+                Positioned(
+                  left: 0, right: 0, bottom: 0,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                    child: const LinearProgressIndicator(
+                      minHeight: 3,
+                      backgroundColor: Color(0xFFE5F6DE),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3A642B)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (_isGpsLoading && _gpsTarget == 'buyDrop')
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF3A642B))),
+                  SizedBox(width: 5),
+                  Text('Getting GPS address…', style: TextStyle(fontSize: 10, color: Color(0xFF3A642B), fontWeight: FontWeight.w500)),
+                ],
+              ),
+            )
+          else if (_isSearchingBuyDrop)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF64748B))),
+                  SizedBox(width: 5),
+                  Text('Searching places…', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                ],
+              ),
+            )
+          else if (_buyDropCtrl.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 5, left: 2),
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _buyDropCtrl.clear();
+                  _buyDropSuggestions = [];
+                }),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.cancel_rounded, size: 11, color: Color(0xFF94A3B8)),
+                    SizedBox(width: 3),
+                    Text('Clear address', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8), decoration: TextDecoration.underline)),
+                  ],
+                ),
+              ),
+            ),
+          _buildAddressSuggestionList(
+            suggestions: _buyDropSuggestions,
+            isSearching: _isSearchingBuyDrop,
+            onSelect: (s) {
+              setState(() {
+                _buyDropCtrl.text = s.fullAddress;
+                _buyDropSuggestions = [];
+              });
+              FocusScope.of(context).unfocus();
+            },
           ),
           if (_isCrossZone) ...[
             const SizedBox(height: 8),
@@ -3534,7 +4033,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _riderTab = 'completed'),
+                  onTap: () { setState(() => _riderTab = 'completed'); _syncRiderCompletedTrips(); },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(

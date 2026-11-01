@@ -111,11 +111,26 @@ class ApiService {
           .timeout(const Duration(seconds: 8));
 
       final data = _safeJsonDecode(response.body);
-      if (response.statusCode == 200 && data != null && data['success'] == true) {
+      if (response.statusCode == 200 && data != null && data['order'] != null) {
         await PreferencesService.saveOrderToStore(data['order']);
         return OrderModel.fromJson(data['order']);
       }
-    } catch (_) {}
+      if (response.statusCode == 404 || (data != null && data['success'] == false)) {
+        // Order deleted from DB: clear local references
+        await PreferencesService.removeOrderFromStore(orderId);
+        final activeCust = await PreferencesService.getCustomerActiveOrderId();
+        if (activeCust == orderId) {
+          await PreferencesService.clearCustomerActiveOrderId();
+        }
+        final activeRider = await PreferencesService.getRiderActiveOrderId();
+        if (activeRider == orderId) {
+          await PreferencesService.clearRiderActiveOrderId();
+        }
+        throw Exception('Order not found');
+      }
+    } catch (e) {
+      if (e.toString().contains('Order not found')) rethrow;
+    }
 
     final stored = await PreferencesService.getStoredOrders();
     for (final s in stored) {
@@ -134,9 +149,15 @@ class ApiService {
           .timeout(const Duration(seconds: 8));
 
       final data = _safeJsonDecode(response.body);
-      if (response.statusCode == 200 && data != null && data['hasActiveOrder'] == true && data['order'] != null) {
-        await PreferencesService.saveOrderToStore(data['order']);
-        return OrderModel.fromJson(data['order']);
+      if (response.statusCode == 200 && data != null) {
+        if (data['hasActiveOrder'] == true && data['order'] != null) {
+          await PreferencesService.saveOrderToStore(data['order']);
+          return OrderModel.fromJson(data['order']);
+        } else {
+          // Server explicitly returned 200 with no active order in DB
+          await PreferencesService.clearCustomerActiveOrderId();
+          return null;
+        }
       }
     } catch (_) {}
 
@@ -149,6 +170,31 @@ class ApiService {
       }
     }
     return null;
+  }
+
+  // 4b. Get All Customer Orders History directly from DB
+  Future<List<OrderModel>> getCustomerOrders(String phone) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/orders/customer/$phone'), headers: _headers)
+          .timeout(const Duration(seconds: 8));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null && data['orders'] is List) {
+        final List ordersJson = data['orders'];
+        final list = ordersJson.map((i) => OrderModel.fromJson(i)).toList();
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list;
+      }
+    } catch (_) {}
+
+    final stored = await PreferencesService.getStoredOrders();
+    final list = stored
+        .where((s) => s['customerPhone'] == phone || s['dropPhone'] == phone)
+        .map((s) => OrderModel.fromJson(s))
+        .toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   // 5. Cancel Order
@@ -252,20 +298,11 @@ class ApiService {
       final data = _safeJsonDecode(response.body);
       if (response.statusCode == 200 && data != null && data['success'] == true) {
         final List ordersJson = data['orders'] ?? [];
-        for (final item in ordersJson) {
-          await PreferencesService.saveOrderToStore(item);
-        }
         return ordersJson.map((i) => OrderModel.fromJson(i)).toList();
       }
     } catch (_) {}
 
-    final stored = await PreferencesService.getStoredOrders();
-    final available = stored
-        .where((s) => s['status'] == 'ORDER_PLACED' && s['assignedRider'] == null)
-        .map((s) => OrderModel.fromJson(s))
-        .toList();
-    available.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return available;
+    return [];
   }
 
   // 9. Atomic Claim Order
@@ -294,7 +331,7 @@ class ApiService {
         s['assignedRider'] = {
           '_id': riderId,
           'name': riderName ?? 'Assigned Rider',
-          'phone': riderPhone ?? '9363302266',
+          'phone': riderPhone ?? '7639483476',
         };
         await PreferencesService.saveOrderToStore(s);
         return OrderModel.fromJson(s);
@@ -383,9 +420,15 @@ class ApiService {
           .timeout(const Duration(seconds: 8));
 
       final data = _safeJsonDecode(response.body);
-      if (response.statusCode == 200 && data != null && data['hasActiveOrder'] == true && data['order'] != null) {
-        await PreferencesService.saveOrderToStore(data['order']);
-        return OrderModel.fromJson(data['order']);
+      if (response.statusCode == 200 && data != null) {
+        if (data['hasActiveOrder'] == true && data['order'] != null) {
+          await PreferencesService.saveOrderToStore(data['order']);
+          return OrderModel.fromJson(data['order']);
+        } else {
+          // Server returned 200 and no active order in DB
+          await PreferencesService.clearRiderActiveOrderId();
+          return null;
+        }
       }
     } catch (_) {}
 
