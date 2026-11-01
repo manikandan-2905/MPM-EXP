@@ -53,8 +53,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   // Custom Item Input
   final TextEditingController _customItemCtrl = TextEditingController();
 
-  String _selectedCategory = 'Meat';
-  String _selectedCategoryLabel = '🥩 Fresh Meat';
+  String _selectedCategory = 'Medicines';
+  String _selectedCategoryLabel = '💊 Medicine';
   bool _isSenderMe = true;
   bool _isReceiverMe = false;
   bool _isUrgent = false;
@@ -288,7 +288,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     try {
       final count = await _apiService.getActiveRidersCount();
       if (mounted) {
-        setState(() => _activeRidersCount = count);
+        if (_activeRidersCount != count) setState(() => _activeRidersCount = count);
       }
     } catch (_) {}
   }
@@ -1184,6 +1184,567 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
+  // ── Download QR, Share & Policy Bottom Sheet ───────────────────────
+  void _openAppDownloadAndPolicySheet() {
+    const String downloadUrl = 'https://qrco.de/NIPPO';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(modalCtx).size.height * 0.92,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.qr_code_scanner_rounded,
+                            size: 20,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Download & Share ZIPPO',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            Text(
+                              'Direct APK Link & Service Guide',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 22, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(modalCtx),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 16, thickness: 1, color: Color(0xFFE2E8F0)),
+
+              // Scrollable Details
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  children: [
+                    // QR Code Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF4FBF0),
+                              borderRadius: BorderRadius.circular(9999),
+                              border: Border.all(color: const Color(0xFFCBEDBC)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.verified_rounded, size: 12, color: Color(0xFF3A642B)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Official Android APK QR Code',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF3A642B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                'assets/download_qr.png',
+                                width: 190,
+                                height: 190,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Scan with any Camera or QR Scanner app to download the latest APK directly.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF475569),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Download Link Box with Copy Button
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFCBD5E1)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.link_rounded, size: 18, color: Color(0xFF0284C7)),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: SelectableText(
+                                    downloadUrl,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(const ClipboardData(text: downloadUrl));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Download link copied to clipboard! 📋'),
+                                        backgroundColor: Color(0xFF059669),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F172A),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.copy_rounded, size: 12, color: Colors.white),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Copy',
+                                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // Share Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF25D366),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 11),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.share_rounded, size: 15),
+                                  label: const Text(
+                                    'Share APK Link',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                                  ),
+                                  onPressed: () {
+                                    Share.share(
+                                      '🛵 Download ZIPPO (Melapalayam Express) - Hyperlocal goods & errand delivery in Melapalayam & Tirunelveli!\n\n📲 Direct Download: ' + downloadUrl + '\n\nContact Mani (Founder): 7639483476',
+                                      subject: 'ZIPPO MPM Express App Download',
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0284C7),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 11),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.open_in_browser_rounded, size: 15),
+                                  label: const Text(
+                                    'Open Link',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                                  ),
+                                  onPressed: () async {
+                                    final uri = Uri.parse(downloadUrl);
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Services & Dual Modes Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.delivery_dining_rounded, size: 18, color: Color(0xFF76C457)),
+                              SizedBox(width: 8),
+                              Text(
+                                'Our 2 Core Services (சேவைகள்)',
+                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Mode 1: Pickup & Drop
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFBBF7D0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Row(
+                                  children: [
+                                    Icon(Icons.inventory_2_outlined, size: 15, color: Color(0xFF16A34A)),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      '1. Pickup & Delivery (பொருளை எடுத்து டெலிவரி)',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Deliver ANY legal item or package — keys, urgent documents, medicine, parcels, tailoring clothes, and lunch boxes safely across Melapalayam & surrounds.',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.35),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Mode 2: Buy For Me
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Row(
+                                  children: [
+                                    Icon(Icons.shopping_bag_outlined, size: 15, color: Color(0xFF2563EB)),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      '2. Buy For You (உங்களுக்காக வாங்கித் தருதல்)',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1D4ED8)),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'We BUY ANY legal items from your favorite shops, stalls, bazaar, hotels or pharmacies and deliver directly with store bill verification.',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF1E40AF), height: 1.35),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+                          const Text(
+                            '📍 Delivery Coverage: Melapalayam & surrounds (Palayamkottai, Vannarpettai, Tirunelveli Town, New Bus Stand within 10 km).',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w600, height: 1.35),
+                          ),
+
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Supported Categories (ஆதரிக்கப்படும் பொருட்கள்):',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              _buildServicePill('Medicines & Pharmacy', '💊'),
+                              _buildServicePill('Keys & Urgent Docs', '🔑'),
+                              _buildServicePill('Grocery & Shop Items', '🛒'),
+                              _buildServicePill('Tailoring & Clothes', '🧵'),
+                              _buildServicePill('Lunch / Any Food', '🍱'),
+                              _buildServicePill('Fresh Meat / Mutton', '🥩'),
+                              _buildServicePill('Any Legal Item / Custom', '✍️'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Transparent Fare Policy Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.currency_rupee_rounded, size: 18, color: Color(0xFFD97706)),
+                              SizedBox(width: 8),
+                              Text(
+                                'Transparent Pricing Policy',
+                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          _buildFareRow('Base Fare (First 2 km)', '₹30'),
+                          _buildFareRow('Distance Rate (beyond 2 km)', '₹10 / km'),
+                          _buildFareRow('Urgent Priority Delivery', '+₹15'),
+                          _buildFareRow('Cross-Zone Area (Palayamkottai / High Ground)', '+₹20'),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Legal & Security Warning
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F2),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFFECDD3)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Icon(Icons.gavel_rounded, size: 16, color: Color(0xFFE11D48)),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'பாதுகாப்பு விதிமுறைகள்: பணம் (Cash), மதுபானம், போதைப்பொருட்கள், அல்லது பில் இல்லாத மருந்துகள் கொண்டு செல்லப்பட மாட்டாது.\n\nStrict Prohibition: Cash transfers, liquor, illegal items, and unprescribed pharmacy drugs are strictly prohibited.',
+                              style: TextStyle(fontSize: 10.5, color: Color(0xFF881337), height: 1.4, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Developer & Founder Contact Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFF334155)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.headset_mic_rounded, size: 18, color: Color(0xFF38BDF8)),
+                              SizedBox(width: 8),
+                              Text(
+                                'Developer & Founder Direct Line',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Mani (Founder & Developer): +91 7639483476\nReach out for any service enquiries, partnership, or rider registration.',
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.4),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0284C7),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.phone, size: 13),
+                                  label: const Text('Call Mani', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  onPressed: () => _launchPhone('7639483476'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF25D366),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.chat, size: 13),
+                                  label: const Text('WhatsApp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  onPressed: () => _launchWhatsAppEnquiry(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildServicePill(String label, String icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFareRow(String title, String fare) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w500)),
+          Text(fare, style: const TextStyle(fontSize: 12, color: Color(0xFF0F172A), fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
   // Customer Orders History Bottom Sheet (User order details, contact numbers & live track reopening)
   Future<void> _openCustomerHistorySheet() async {
     final phone = _primaryPhoneCtrl.text.trim();
@@ -2044,6 +2605,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             borderRadius: BorderRadius.circular(10),
                             child: Image.asset(
                               'assets/logo.png',
+                              cacheWidth: 90,
+                              cacheHeight: 90,
                               width: 44,
                               height: 44,
                               fit: BoxFit.contain,
@@ -2179,18 +2742,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       const SizedBox(width: 8),
 
-                      // Discreet Rider Access Trigger (requires 2 continuous taps to open)
+                      // Shield Trigger: Single Tap -> QR & Policy Sheet | Double Tap -> Rider/Admin Portal
                       GestureDetector(
-                        onTap: () {
-                          final now = DateTime.now();
-                          if (_lastShieldTap != null &&
-                              now.difference(_lastShieldTap!) < const Duration(milliseconds: 700)) {
-                            _lastShieldTap = null;
-                            setState(() => _currentViewMode = 'rider');
-                          } else {
-                            _lastShieldTap = now;
-                          }
-                        },
+                        onTap: () => _openAppDownloadAndPolicySheet(),
                         onDoubleTap: () => setState(() => _currentViewMode = 'rider'),
                         child: Container(
                           width: 36,
@@ -3712,6 +4266,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             borderRadius: BorderRadius.circular(20),
             child: Image.asset(
               'assets/logo.png',
+              cacheWidth: 150,
+              cacheHeight: 150,
               width: 72,
               height: 72,
               fit: BoxFit.cover,

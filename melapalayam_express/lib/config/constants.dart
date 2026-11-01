@@ -8,6 +8,7 @@ class AppConstants {
   // Brand Identity
   static const String appName = 'ZIPPO';
   static const String appTagline = 'Trusted Local Goods Connection';
+  static const String appDownloadUrl = 'https://qrco.de/NIPPO';
 
   // Regional Dispatch
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';
@@ -61,23 +62,24 @@ class AppConstants {
 
   // Categories matching Prototype (Icon, Label, Full Title)
   static const List<Map<String, String>> prototypeCategories = [
-    {'id': 'Meat', 'label': 'Fresh Meat', 'emoji': '🥩', 'title': 'Fresh Mutton / Meat'},
-    {'id': 'Food', 'label': 'Food / Tiffin', 'emoji': '🍱', 'title': 'Hot Food / Tiffin'},
-    {'id': 'Medicines', 'label': 'Medicine', 'emoji': '💊', 'title': 'Medicines'},
+    {'id': 'Medicines', 'label': 'Medicine', 'emoji': '💊', 'title': 'Medicines & Pharmacy'},
     {'id': 'Documents', 'label': 'Keys / Docs', 'emoji': '🔑', 'title': 'Keys / Urgent Documents'},
+    {'id': 'Grocery', 'label': 'Grocery', 'emoji': '🛒', 'title': 'Grocery & Shop Items'},
     {'id': 'Tailoring', 'label': 'Tailoring', 'emoji': '🧵', 'title': 'Tailoring / Clothes'},
-    {'id': 'Custom', 'label': 'Other / தனி', 'emoji': '✍️', 'title': 'Custom Request'},
+    {'id': 'Food', 'label': 'Lunch / Food', 'emoji': '🍱', 'title': 'Lunch / Any Food'},
+    {'id': 'Meat', 'label': 'Fresh Meat', 'emoji': '🥩', 'title': 'Fresh Mutton / Meat'},
+    {'id': 'Custom', 'label': 'Other / தனி', 'emoji': '✍️', 'title': 'Any Legal Item / Custom'},
   ];
 
   // Flat category list for Pickup & Drop form ChoiceChips
   static const List<String> pickupCategories = [
-    'Food',
-    'Meat',
     'Medicines',
     'Documents',
-    'Tailoring',
     'Grocery',
-    'Custom',
+    'Tailoring',
+    'Lunch / Any Food',
+    'Fresh Meat',
+    'Custom (Any Legal Item)',
   ];
 
   // Prohibited Items Warning (Tamil & English)
