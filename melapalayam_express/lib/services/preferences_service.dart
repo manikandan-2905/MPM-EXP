@@ -65,6 +65,19 @@ class PreferencesService {
     await prefs.remove(_keyRiderActiveOrderId);
   }
 
+  // Last View Mode (Persistent Role: 'customer' or 'rider')
+  static const String _keyLastViewMode = 'mpm_last_view_mode';
+
+  static Future<void> saveLastViewMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLastViewMode, mode);
+  }
+
+  static Future<String?> getLastViewMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyLastViewMode);
+  }
+
   // Rider Session
   static Future<void> saveRiderSession({
     required String id,
@@ -75,6 +88,7 @@ class PreferencesService {
     await prefs.setString(_keyRiderId, id);
     await prefs.setString(_keyRiderName, name);
     await prefs.setString(_keyRiderPhone, phone);
+    await prefs.setString(_keyLastViewMode, 'rider');
   }
 
   static Future<Map<String, String?>> getRiderSession() async {
@@ -92,6 +106,7 @@ class PreferencesService {
     await prefs.remove(_keyRiderName);
     await prefs.remove(_keyRiderPhone);
     await prefs.remove(_keyRiderActiveOrderId);
+    await prefs.setString(_keyLastViewMode, 'customer');
   }
 
   // FCM Token Cache

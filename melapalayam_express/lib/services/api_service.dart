@@ -44,6 +44,50 @@ class ApiService {
     return 0; // Default to 0 when no riders are actively online in DB
   }
 
+  // 1b. Get Online Riders List (for Customer Direct Call confirmation)
+  Future<List<Map<String, dynamic>>> getOnlineRiders() async {
+    // 1. Try dedicated public online-list route
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/riders/online-list'), headers: _headers)
+          .timeout(const Duration(seconds: 6));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null && data['riders'] is List) {
+        final rawList = data['riders'] as List;
+        final list = rawList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        final onlineOnly = list.where((r) => r['isOnline'] == true).toList();
+        if (onlineOnly.isNotEmpty) return onlineOnly;
+      }
+    } catch (_) {}
+
+    // 2. Direct fallback to existing live Render route /admin/riders
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/admin/riders'), headers: _headers)
+          .timeout(const Duration(seconds: 6));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null && data['riders'] is List) {
+        final rawList = data['riders'] as List;
+        final onlineList = <Map<String, dynamic>>[];
+        for (final item in rawList) {
+          if (item is Map && item['isOnline'] == true) {
+            onlineList.add({
+              '_id': item['_id']?.toString() ?? '',
+              'name': item['name']?.toString() ?? 'Rider',
+              'phone': item['phone']?.toString() ?? '',
+              'isOnline': true,
+            });
+          }
+        }
+        return onlineList;
+      }
+    } catch (_) {}
+
+    return [];
+  }
+
   // 2. Create Order (Guest Customer & Testing)
   Future<Map<String, dynamic>> createOrder(Map<String, dynamic> payload) async {
     try {
@@ -198,13 +242,13 @@ class ApiService {
   }
 
   // 5. Cancel Order
-  Future<void> cancelOrder(String orderId, {String reason = 'Customer requested'}) async {
+  Future<void> cancelOrder(String orderId, {String reason = 'Customer requested', bool isRider = false, String? riderId}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/orders/$orderId/cancel'),
             headers: _headers,
-            body: jsonEncode({'reason': reason}),
+            body: jsonEncode({'reason': reason, 'isRider': isRider, if (riderId != null) 'riderId': riderId}),
           )
           .timeout(const Duration(seconds: 8));
 

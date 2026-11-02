@@ -45,6 +45,7 @@ class OrderModel {
   final double estimatedDistanceKm;
   final String paymentMode; // 'Cash' | 'UPI'
   final DateTime createdAt;
+  final String? cancellationReason;
 
   OrderModel({
     required this.id,
@@ -71,6 +72,7 @@ class OrderModel {
     required this.estimatedDistanceKm,
     this.paymentMode = 'Cash',
     required this.createdAt,
+    this.cancellationReason,
   });
 
   bool get isPlaced => status == 'ORDER_PLACED';
@@ -126,6 +128,7 @@ class OrderModel {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),
+      cancellationReason: json['cancellationReason'] ?? json['reason'],
     );
   }
 }

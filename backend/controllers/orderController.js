@@ -371,30 +371,61 @@ exports.completeDelivery = async (req, res) => {
   }
 };
 
-// 8. Locked Cancellation Rules
+// 8. Cancellation Rules (Rider can close anytime before DELIVERED with confirmation)
 exports.cancelOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { reason, phone } = req.body;
+    const { reason, phone, isRider, riderId } = req.body;
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).populate('assignedRider', 'name phone');
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
 
-    // Locked Cancellation Rules: Once items are purchased or out for delivery, cannot cancel!
-    const nonCancellableStatuses = ['ITEM_PURCHASED', 'ON_THE_WAY', 'DELIVERED'];
-    if (nonCancellableStatuses.includes(order.status)) {
+    if (order.status === 'DELIVERED') {
       return res.status(400).json({
         success: false,
-        message: 'Cancellation locked! The rider has already purchased/picked up items. Please contact rider directly.',
+        message: 'Order is already marked as DELIVERED and cannot be cancelled.',
       });
+    }
+
+    // Customer cancellation locked if items already purchased; Rider can close anytime before DELIVERED
+    const isRiderAction = Boolean(isRider) || (riderId && order.assignedRider && order.assignedRider._id.toString() === riderId.toString());
+    if (!isRiderAction) {
+      const customerLockedStatuses = ['ITEM_PURCHASED', 'ON_THE_WAY'];
+      if (customerLockedStatuses.includes(order.status)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cancellation locked! The rider has already purchased/picked up items. Please contact rider directly.',
+        });
+      }
     }
 
     order.status = 'CANCELLED';
     order.cancelledAt = new Date();
-    order.cancellationReason = reason || 'Order cancelled';
+    order.cancellationReason = reason || (isRiderAction ? 'Closed / Cancelled by rider' : 'Cancelled by customer');
     await order.save();
+
+    // Send notification to customer if rider closed the order
+    if (isRiderAction) {
+      try {
+        await sendMilestoneNotification({
+          token: order.customerFcmToken,
+          title: '⚠️ Order Closed by Rider',
+          body: 'Order #' + order.orderNumber + ' was closed by rider: ' + order.cancellationReason + '. You may re-order or contact support.',
+          data: {
+            orderId: order._id.toString(),
+            orderNumber: order.orderNumber,
+            status: 'CANCELLED',
+            reason: order.cancellationReason,
+          },
+          orderId: order._id,
+          recipientPhone: order.customerPhone,
+        });
+      } catch (fcmErr) {
+        console.error('[FCM Notification Error on Cancel]:', fcmErr);
+      }
+    }
 
     return res.status(200).json({
       success: true,

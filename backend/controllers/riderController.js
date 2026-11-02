@@ -135,3 +135,19 @@ exports.getRiderActiveOrder = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// 3b. Get Active Online Riders List (for Customer Direct Call / Confirmation)
+exports.getOnlineRiders = async (req, res) => {
+  try {
+    // Only return riders who are genuinely online
+    const riders = await Rider.find({ isOnline: true }, 'name phone vehicleNumber isOnline');
+
+    return res.status(200).json({
+      success: true,
+      riders: riders || [],
+      count: riders ? riders.length : 0,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

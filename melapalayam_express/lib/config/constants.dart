@@ -60,26 +60,34 @@ class AppConstants {
   static const Color slate100 = Color(0xFFF1F5F9);
   static const Color slate50 = Color(0xFFF8FAFC);
 
-  // Categories matching Prototype (Icon, Label, Full Title)
+  // Pick and Deliver Categories (Fresh Meat removed as requested)
   static const List<Map<String, String>> prototypeCategories = [
     {'id': 'Medicines', 'label': 'Medicine', 'emoji': '💊', 'title': 'Medicines & Pharmacy'},
     {'id': 'Documents', 'label': 'Keys / Docs', 'emoji': '🔑', 'title': 'Keys / Urgent Documents'},
     {'id': 'Grocery', 'label': 'Grocery', 'emoji': '🛒', 'title': 'Grocery & Shop Items'},
     {'id': 'Tailoring', 'label': 'Tailoring', 'emoji': '🧵', 'title': 'Tailoring / Clothes'},
     {'id': 'Food', 'label': 'Lunch / Food', 'emoji': '🍱', 'title': 'Lunch / Any Food'},
-    {'id': 'Meat', 'label': 'Fresh Meat', 'emoji': '🥩', 'title': 'Fresh Mutton / Meat'},
     {'id': 'Custom', 'label': 'Other / தனி', 'emoji': '✍️', 'title': 'Any Legal Item / Custom'},
   ];
 
-  // Flat category list for Pickup & Drop form ChoiceChips
+  // Flat category list for Pick and Deliver form ChoiceChips
   static const List<String> pickupCategories = [
     'Medicines',
     'Documents',
     'Grocery',
     'Tailoring',
     'Lunch / Any Food',
-    'Fresh Meat',
     'Custom (Any Legal Item)',
+  ];
+
+  // Buy For Me Categories (6 Categories: Fresh Meat, Veg/Fruits, Grocery, Stationary, Food, Others)
+  static const List<Map<String, String>> buyForMeCategories = [
+    {'id': 'Meat', 'label': 'Fresh Meat', 'emoji': '🥩', 'title': 'Fresh Mutton / Meat / Chicken', 'placeholder': 'e.g. 1/2 Kg Fresh Mutton (curry cut), 1/2 Kg Chicken'},
+    {'id': 'VegFruits', 'label': 'Veg / Fruits', 'emoji': '🥦', 'title': 'Fresh Veg & Fruits', 'placeholder': 'e.g. 1kg Big Onion, 1/2kg Tomato, 2 Lemons, Greens'},
+    {'id': 'Grocery', 'label': 'Grocery', 'emoji': '🛒', 'title': 'Grocery & Provisions', 'placeholder': 'e.g. 1kg Sugar, 1/2kg Dhal, 1 Tea packet, Cooking Oil'},
+    {'id': 'Stationary', 'label': 'Stationary', 'emoji': '📚', 'title': 'Stationary & Books', 'placeholder': 'e.g. 2 Long Ruled Notebooks, 2 Blue pens, A4 Sheets'},
+    {'id': 'Food', 'label': 'Food / Meals', 'emoji': '🍱', 'title': 'Lunch / Hotel Meals', 'placeholder': 'e.g. 2 Chicken Biryani, 4 Parotta, Salna, Tea'},
+    {'id': 'Others', 'label': 'Others', 'emoji': '🛍️', 'title': 'Others / Any Legal Items', 'placeholder': 'e.g. Specific items needed from local market stall'},
   ];
 
   // Prohibited Items Warning (Tamil & English)

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -49,12 +50,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   final TextEditingController _buyShopCtrl = TextEditingController();
   final TextEditingController _buyListCtrl = TextEditingController();
   final TextEditingController _buyDropCtrl = TextEditingController();
+  final TextEditingController _customBuyItemCtrl = TextEditingController();
 
   // Custom Item Input
   final TextEditingController _customItemCtrl = TextEditingController();
 
   String _selectedCategory = 'Medicines';
   String _selectedCategoryLabel = '💊 Medicine';
+  String _selectedBuyCategory = 'Meat';
+  String _selectedBuyCategoryLabel = '🥩 Fresh Meat';
   bool _isSenderMe = true;
   bool _isReceiverMe = false;
   bool _isUrgent = false;
@@ -130,6 +134,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     _buyShopCtrl.dispose();
     _buyListCtrl.dispose();
     _buyDropCtrl.dispose();
+    _customBuyItemCtrl.dispose();
     _customItemCtrl.dispose();
     _riderLoginPhoneCtrl.dispose();
     _riderOtpCtrl.dispose();
@@ -140,15 +145,33 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     // Keep primary phone empty by default unless user inputs it
     _syncPhoneCheckboxes();
 
+    final lastRole = await PreferencesService.getLastViewMode();
     final riderSession = await PreferencesService.getRiderSession();
     if (riderSession['id'] != null && riderSession['id']!.isNotEmpty) {
+      final cachedRider = RiderModel(
+        id: riderSession['id']!,
+        name: riderSession['name'] ?? 'ZIPPO Rider',
+        phone: riderSession['phone'] ?? '',
+        isOnline: true,
+        totalDeliveries: 0,
+        totalEarnings: 0,
+      );
+      setState(() {
+        _loggedInRider = cachedRider;
+        _isRiderLoggedIn = true;
+        _isRiderOnline = true;
+        if (lastRole == 'rider') {
+          _currentViewMode = 'rider';
+        }
+      });
       try {
         final rider = await _apiService.getRiderProfile(riderSession['id']!);
-        setState(() {
-          _loggedInRider = rider;
-          _isRiderLoggedIn = true;
-          _isRiderOnline = rider.isOnline;
-        });
+        if (mounted) {
+          setState(() {
+            _loggedInRider = rider;
+            _isRiderOnline = rider.isOnline;
+          });
+        }
       } catch (_) {}
     }
 
@@ -606,7 +629,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         return;
       }
 
-      if (_buyListCtrl.text.trim().isEmpty) {
+      if (_selectedBuyCategory == 'Others' &&
+          _customBuyItemCtrl.text.trim().isEmpty &&
+          _buyListCtrl.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Please specify item details manually (பொருள் விபரங்கள் உள்ளிடவும்)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+
+      if (_buyListCtrl.text.trim().isEmpty && _customBuyItemCtrl.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('⚠️ Please enter Items to Buy (வாங்க வேண்டிய பொருட்கள் உள்ளிடவும்)'),
@@ -638,7 +673,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       }
 
       final itemDesc = isBuy
-          ? _buyListCtrl.text.trim()
+          ? (_selectedBuyCategory == 'Others' && _customBuyItemCtrl.text.trim().isNotEmpty
+              ? '${_customBuyItemCtrl.text.trim()} - ${_buyListCtrl.text.trim()}'
+              : _buyListCtrl.text.trim())
           : (_selectedCategory == 'Custom'
               ? _customItemCtrl.text.trim()
               : _selectedCategoryLabel);
@@ -656,7 +693,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         'pickupPhone': pickupPhone.isNotEmpty ? pickupPhone : effectivePhone,
         'dropPhone': dropPhone.isNotEmpty ? dropPhone : effectivePhone,
         'orderType': isBuy ? 'BUY_FOR_ME' : 'PICKUP_DROP',
-        'category': _selectedCategory,
+        'category': isBuy
+            ? (_selectedBuyCategory == 'Others' && _customBuyItemCtrl.text.trim().isNotEmpty
+                ? _customBuyItemCtrl.text.trim()
+                : _selectedBuyCategory)
+            : _selectedCategory,
         'itemsList': [itemDesc],
         'shopName': isBuy ? pickupLoc : '',
         'isUrgent': _isUrgent,
@@ -698,9 +739,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     try {
       final updated = await _apiService.getOrderById(_activeOrder!.id);
       if (mounted) {
+        final wasCancelled = updated.isCancelled;
+        final cancelReason = updated.cancellationReason ?? 'Cancelled by Rider';
         setState(() => _activeOrder = updated);
         if (updated.isDelivered || updated.isCancelled) {
           await PreferencesService.clearCustomerActiveOrderId();
+          if (wasCancelled && _showTrackingModal) {
+            _showCustomerOrderCancelledDialog(cancelReason);
+          }
         }
       }
     } catch (e) {
@@ -714,6 +760,77 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         }
       }
     }
+  }
+
+
+  // Dialog to inform Customer when Rider closes/cancels order
+  void _showCustomerOrderCancelledDialog(String reason) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 24),
+            SizedBox(width: 8),
+            Text('Trip Closed / Cancelled', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'The rider had to close this order.',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Text(
+                'Reason: $reason',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B), fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'You can place a new order or call our support desk (Mani: 7639483476) for instant help.',
+              style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _launchPhone('7639483476');
+            },
+            child: const Text('Call Mani (Founder)', style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F172A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _activeOrder = null;
+                _showTrackingModal = false;
+              });
+            },
+            child: const Text('OK / Place New Order'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleCustomerCancel() async {
@@ -790,6 +907,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       final rider = await _apiService.loginRider(password, fcmToken: token);
 
       await PreferencesService.saveRiderSession(id: rider.id, name: rider.name, phone: rider.phone);
+      await PreferencesService.saveLastViewMode('rider');
 
       setState(() {
         _loggedInRider = rider;
@@ -948,6 +1066,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Future<void> _logoutRider() async {
     await PreferencesService.clearRiderSession();
     await PreferencesService.clearRiderActiveOrderId();
+    await PreferencesService.saveLastViewMode('customer');
     setState(() {
       _isRiderLoggedIn = false;
       _loggedInRider = null;
@@ -1148,7 +1267,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     if (confirmed == true && _riderActiveTrip != null) {
       final tripToCancel = _riderActiveTrip!;
       try {
-        await _apiService.cancelOrder(tripToCancel.id, reason: selectedReason);
+        await _apiService.cancelOrder(
+          tripToCancel.id,
+          reason: selectedReason,
+          isRider: true,
+          riderId: _loggedInRider!.id,
+        );
       } catch (_) {}
 
       final completedMap = {
@@ -1182,6 +1306,210 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       );
       _fetchRiderPool();
     }
+  }
+
+
+  // ── Available Riders Bottom Sheet (Direct Call & WhatsApp Confirmation) ──
+  void _showAvailableRidersSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _apiService.getOnlineRiders(),
+            builder: (ctx, snapshot) {
+              final riders = snapshot.data ?? [];
+              final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFDCFCE7),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.phone_in_talk_rounded, size: 20, color: Color(0xFF15803D)),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  'Available ZIPPO Riders',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                                ),
+                                Text(
+                                  'Call rider directly to confirm your order',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const Divider(color: Color(0xFFE2E8F0)),
+
+                  if (isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(40),
+                      child: CircularProgressIndicator(color: Color(0xFF15803D)),
+                    )
+                  else if (riders.isEmpty) ...[
+                    // No Riders Available Card (Shown when no one is available)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.two_wheeler_outlined, size: 32, color: Color(0xFF94A3B8)),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No Riders Available',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B)),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'No one is available right now. Please place your order directly in the app or check back in a few minutes.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Active Available Riders List (Only shows genuinely available riders)
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        itemCount: riders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, idx) {
+                          final r = riders[idx];
+                          final name = r['name']?.toString() ?? 'ZIPPO Rider';
+                          final phone = r['phone']?.toString() ?? '';
+                          final vehicle = r['vehicleNumber']?.toString() ?? 'Melapalayam Patrol';
+                          final isOnline = r['isOnline'] == true;
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF22C55E),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 14.5,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                if (phone.isNotEmpty)
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF15803D),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    icon: const Icon(Icons.phone, size: 14),
+                                    label: const Text('Call', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _launchPhone(phone),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   // ── Download QR, Share & Policy Bottom Sheet ───────────────────────
@@ -1867,7 +2195,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               ),
                               SizedBox(height: 6),
                               Text(
-                                'Book a Pickup & Drop or Buy For Me delivery to track it and contact your rider anytime here.',
+                                'Book a Pick and Deliver or Buy For Me delivery to track it and contact your rider anytime here.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                               ),
@@ -2007,7 +2335,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 child: Text(
                   order.orderType == 'BUY_FOR_ME'
                       ? 'Buy For Me (${order.shopName ?? "Market"})'
-                      : 'Pickup & Drop (${order.category})',
+                      : 'Pick and Deliver (${order.category})',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
                 ),
               ),
@@ -2372,6 +2700,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
+        floatingActionButton: _currentViewMode == 'customer' && !_showTrackingModal
+            ? Modern270CallOrderButton(
+                onTap: _showAvailableRidersSheet,
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         body: Stack(
           children: [
             if (_currentViewMode == 'customer') _buildCustomerView(),
@@ -2726,6 +3060,29 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
+
+                      // Shield Trigger: Single Tap -> QR & Policy Sheet | Double Tap -> Rider/Admin Portal
+                      GestureDetector(
+                        onTap: () => _openAppDownloadAndPolicySheet(),
+                        onDoubleTap: () {
+                          setState(() => _currentViewMode = 'rider');
+                          if (_isRiderLoggedIn) {
+                            PreferencesService.saveLastViewMode('rider');
+                          }
+                        },
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E293B).withOpacity(0.9),
+                            border: Border.all(color: const Color(0xFF334155)),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.shield_outlined, color: Color(0xFF94A3B8), size: 16),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
                       // Direct Support & Enquiry Trigger to Mani (Founder & Developer)
                       GestureDetector(
                         onTap: () => _launchWhatsAppEnquiry(),
@@ -2738,23 +3095,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.headset_mic_rounded, color: Color(0xFF38BDF8), size: 16),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Shield Trigger: Single Tap -> QR & Policy Sheet | Double Tap -> Rider/Admin Portal
-                      GestureDetector(
-                        onTap: () => _openAppDownloadAndPolicySheet(),
-                        onDoubleTap: () => setState(() => _currentViewMode = 'rider'),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B).withOpacity(0.9),
-                            border: Border.all(color: const Color(0xFF334155)),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.shield_outlined, color: Color(0xFF94A3B8), size: 16),
                         ),
                       ),
                     ],
@@ -2778,7 +3118,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: _buildServiceTabButton('pickup', Icons.inventory_2_outlined, 'Pickup & Drop'),
+                            child: _buildServiceTabButton('pickup', Icons.inventory_2_outlined, 'Pick and Deliver'),
                           ),
                           Expanded(
                             child: _buildServiceTabButton('buy', Icons.shopping_bag_outlined, 'Buy For Me'),
@@ -3534,8 +3874,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  // Buy For Me Form Group
+  // Buy For Me Form Group (First Choose Category, then Shop Name, Items to Buy, Delivery Address)
   Widget _buildBuyFormGroup() {
+    final currentCat = AppConstants.buyForMeCategories.firstWhere(
+      (c) => c['id'] == _selectedBuyCategory,
+      orElse: () => AppConstants.buyForMeCategories.first,
+    );
+    final itemHint = currentCat['placeholder'] ?? 'e.g. 1) Items to buy\n2) Quantity';
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -3546,15 +3892,84 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Choose Buy Category First (6 items in 3 columns)
+          const Text(
+            'CHOOSE BUY CATEGORY (பிரிவு தேர்வு செய்க)',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 8),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.45,
+            children: AppConstants.buyForMeCategories.map((item) {
+              final isSelected = _selectedBuyCategory == item['id'];
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedBuyCategory = item['id']!;
+                    _selectedBuyCategoryLabel = '${item['emoji']} ${item['label']}';
+                  });
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFF4FBF0) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF76C457) : const Color(0xFFE2E8F0),
+                      width: isSelected ? 1.8 : 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(item['emoji']!, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(height: 2),
+                      Text(
+                        item['label']!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? const Color(0xFF172E12) : const Color(0xFF334155),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          // Manual Entry for Others (like Pick and Deliver)
+          if (_selectedBuyCategory == 'Others') ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: _customBuyItemCtrl,
+              style: const TextStyle(fontSize: 12),
+              decoration: _cleanInputDecoration('Specify item details manually (பொருள் விபரங்கள் உள்ளிடவும்)...'),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          // 2. Shop Name Field
           const Text('SHOP / STALL NAME (கடை பெயர் / இடம்)',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
           const SizedBox(height: 4),
           TextField(
             controller: _buyShopCtrl,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            decoration: _cleanInputDecoration('e.g. Bazaar Mutton Stall, Periya Theru'),
+            decoration: _cleanInputDecoration('e.g. Melapalayam Bazaar / Periya Theru Stall'),
           ),
           const SizedBox(height: 10),
+
+          // 3. Items To Buy Field (with dynamic hint per category)
           const Text('ITEMS TO BUY (வாங்க வேண்டிய பொருட்கள்)',
               style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
           const SizedBox(height: 4),
@@ -3562,7 +3977,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             controller: _buyListCtrl,
             maxLines: 2,
             style: const TextStyle(fontSize: 12),
-            decoration: _cleanInputDecoration('e.g. 1) 1/2 Kg Fresh Mutton (Leg piece curry cut)\n2) 2 Lemons'),
+            decoration: _cleanInputDecoration(itemHint),
           ),
           const SizedBox(height: 10),
           const Text('DELIVERY ADDRESS (சேர்க்க வேண்டிய இடம்)',
@@ -5667,5 +6082,172 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF059669))),
     );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODERN 270° ANIMATED CALL & ORDER BUTTON
+// Features: Animated pulsing call icon with curved 270° circular outline & text
+// ─────────────────────────────────────────────────────────────────────────────
+class Modern270CallOrderButton extends StatefulWidget {
+  final VoidCallback onTap;
+  const Modern270CallOrderButton({Key? key, required this.onTap}) : super(key: key);
+
+  @override
+  State<Modern270CallOrderButton> createState() => _Modern270CallOrderButtonState();
+}
+
+class _Modern270CallOrderButtonState extends State<Modern270CallOrderButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animCtrl;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1700),
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.05).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
+    );
+
+    _glowAnimation = Tween<double>(begin: 4.0, end: 12.0).animate(
+      CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animCtrl,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: SizedBox(
+              width: 82,
+              height: 82,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // 270° Circular Outline with Curved Text (Not horizontal or vertical)
+                  CustomPaint(
+                    size: const Size(82, 82),
+                    painter: _Circle270TextOutlinePainter(
+                      glowRadius: _glowAnimation.value,
+                    ),
+                  ),
+
+                  // Center Modern Phone Icon Button with Gradient and Glow
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF15803D), Color(0xFF76C457)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF15803D).withOpacity(0.45),
+                          blurRadius: _glowAnimation.value,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.phone_in_talk_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Circle270TextOutlinePainter extends CustomPainter {
+  final double glowRadius;
+
+  _Circle270TextOutlinePainter({required this.glowRadius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const radius = 35.0;
+
+    // 270 degrees sweep angle in radians (1.5 * pi)
+    // Starts at -135 degrees (-0.75 * pi) and sweeps 270 degrees to +135 degrees (+0.75 * pi)
+    // Leaves bottom 90 degrees open!
+    const startAngle = -math.pi * 0.75;
+    const sweepAngle = math.pi * 1.5; // Exactly 270 degrees circular outline
+
+    // 1. Draw glowing 270° Arc Outline Track
+    final arcPaint = Paint()
+      ..color = const Color(0xFF76C457)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawArc(rect, startAngle, sweepAngle, false, arcPaint);
+
+    // 2. Draw Curved "★ CALL TO ORDER ★" Text along the 270° Circular Outline
+    const text = '★ CALL TO ORDER ★';
+    const textStyle = TextStyle(
+      color: Color(0xFF0F172A),
+      fontSize: 7.8,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0.5,
+    );
+
+    final angleStep = sweepAngle / (text.length + 1);
+
+    for (int i = 0; i < text.length; i++) {
+      final charAngle = startAngle + (i + 1) * angleStep;
+      final x = center.dx + radius * math.cos(charAngle);
+      final y = center.dy + radius * math.sin(charAngle);
+
+      final textSpan = TextSpan(text: text[i], style: textStyle);
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      canvas.save();
+      // Move to character position along the 270° circle
+      canvas.translate(x, y);
+      // Rotate upright along the circular curve tangent
+      canvas.rotate(charAngle + math.pi / 2);
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _Circle270TextOutlinePainter oldDelegate) {
+    return oldDelegate.glowRadius != glowRadius;
   }
 }
