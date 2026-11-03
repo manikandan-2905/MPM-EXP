@@ -108,6 +108,28 @@ exports.createOrder = async (req, res) => {
 
     await order.save();
 
+    // Broadcast Instant FCM Push Notification to all Online Riders
+    try {
+      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
+      for (const rider of onlineRiders) {
+        if (rider.fcmToken) {
+          sendMilestoneNotification({
+            token: rider.fcmToken,
+            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
+            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to view and accept!`,
+            data: {
+              orderId: order._id.toString(),
+              status: 'ORDER_PLACED',
+            },
+            orderId: order._id,
+            recipientPhone: rider.phone,
+          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+        }
+      }
+    } catch (fcmErr) {
+      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+    }
+
     const whatsappTicket = formatWhatsAppTicket(order);
 
     return res.status(201).json({

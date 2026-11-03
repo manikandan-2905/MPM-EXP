@@ -1,4 +1,6 @@
 # Sensitive credentials and secrets
+*-firebase-adminsdk-*.json
+*serviceAccountKey*.json
 backend/serviceAccountKey.json
 serviceAccountKey.json
 backend/.env
