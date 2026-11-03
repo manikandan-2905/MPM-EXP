@@ -13,9 +13,12 @@ node_modules/
 npm-debug.log*
 
 # Flutter / Dart build artifacts
+frontend/build/
+frontend/.dart_tool/
 melapalayam_express/build/
 melapalayam_express/.dart_tool/
-.dart_tool/
+**/build/
+**/.dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages

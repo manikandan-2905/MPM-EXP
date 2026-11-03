@@ -16,9 +16,8 @@ echo "==> Verifying Flutter version..."
 flutter --version
 
 echo "==> Building Flutter Web Release..."
-cd melapalayam_express
+cd frontend
 flutter config --enable-web
 flutter build web --release
 
-echo "==> Web Build complete! Artifacts are in melapalayam_express/build/web"
-
+echo "==> Web Build complete! Artifacts are in frontend/build/web"
