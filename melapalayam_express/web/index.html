@@ -1,46 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-  <!-- iOS meta tags & icons -->
+  <!-- Primary Meta Tags (Google Search & SEO) -->
+  <title>ZIPPO | Melapalayam Express - Fast Local Delivery & Buy For You</title>
+  <meta name="title" content="ZIPPO | Melapalayam Express - Fast Local Delivery & Buy For You">
+  <meta name="description" content="Fastest hyper-local delivery in Melapalayam & Tirunelveli. Pick and deliver documents, medicines, food, groceries, tailoring or have items purchased for you within 30 minutes.">
+  <meta name="keywords" content="Melapalayam delivery, ZIPPO, Melapalayam express, Tirunelveli delivery app, buy for me Melapalayam, food delivery Melapalayam, pick and drop Melapalayam, local courier Melapalayam">
+  <meta name="author" content="ZIPPO Express">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#76C457">
+
+  <!-- Open Graph / Facebook / WhatsApp Preview -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ZIPPO | Melapalayam Express - 30 Min Local Delivery">
+  <meta property="og:description" content="Hyper-local pick & deliver and buy-for-you service in Melapalayam & Tirunelveli. Reliable, quick, affordable.">
+  <meta property="og:image" content="icons/Icon-512.png">
+
+  <!-- Twitter Meta Tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ZIPPO | Melapalayam Express">
+  <meta name="twitter:description" content="Fastest hyper-local delivery in Melapalayam & Tirunelveli. Delivered in 30 minutes.">
+  <meta name="twitter:image" content="icons/Icon-512.png">
+
+  <!-- iOS Safari PWA Meta Tags & Home Screen Icon -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="melapalayam_express">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ZIPPO">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="apple-touch-startup-image" href="icons/Icon-512.png">
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>melapalayam_express</title>
+  <!-- Favicon & Web Manifest -->
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
+
+  <!-- Structured Data for Google Search Indexing (Schema.org JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "ZIPPO Melapalayam Express",
+    "image": "icons/Icon-512.png",
+    "description": "Fast hyper-local delivery & personal shopping service in Melapalayam, Tirunelveli.",
+    "telephone": "+917639483476",
+    "priceRange": "₹30 - ₹100",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Melapalayam",
+      "addressRegion": "Tamil Nadu",
+      "postalCode": "627005",
+      "addressCountry": "IN"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 8.7235,
+      "longitude": 77.6910
+    },
+    "areaServed": [
+      "Melapalayam",
+      "Palayamkottai",
+      "Tirunelveli Town",
+      "Vannarpettai"
+    ]
+  }
+  </script>
+
+  <style>
+    body {
+      background-color: #F8FAFC;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
+    #loading-splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #F8FAFC;
+      z-index: 999999;
+      transition: opacity 0.3s ease;
+    }
+    .splash-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      box-shadow: 0 8px 24px rgba(21, 128, 61, 0.2);
+      animation: pulse 1.8s infinite ease-in-out;
+    }
+    .splash-title {
+      margin-top: 16px;
+      font-size: 18px;
+      font-weight: 900;
+      color: #0F172A;
+      letter-spacing: 0.5px;
+    }
+    .splash-sub {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #15803D;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06); }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Native Web Loading Splash -->
+  <div id="loading-splash">
+    <img src="favicon.png" alt="ZIPPO Logo" class="splash-logo">
+    <div class="splash-title">ZIPPO EXPRESS</div>
+    <div class="splash-sub">மேலப்பாளையம் • 30 Min Delivery</div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // Remove splash screen once Flutter has loaded
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('loading-splash');
+      if (splash) {
+        splash.style.opacity = '0';
+        setTimeout(function () {
+          splash.remove();
+        }, 300);
+      }
+    });
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -1,13 +1,19 @@
 {
-    "name": "melapalayam_express",
-    "short_name": "melapalayam_express",
+    "name": "ZIPPO | MPM",
+    "short_name": "ZIPPO",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F8FAFC",
+    "theme_color": "#76C457",
+    "description": "Fast hyper-local delivery & buy-for-you service in Melapalayam & Tirunelveli. Legal items, food, groceries, tailoring and pharmacy delivered in 30 minutes.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": [
+        "shopping",
+        "lifestyle",
+        "food",
+        "business"
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",

@@ -41,32 +41,34 @@ class NotificationService {
 
   Future<void> initialize({Function(String orderId)? onNotificationOrderTap}) async {
     try {
-      // 1. Setup Android Local Notifications
-      const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      // 1. Setup Android Local Notifications (Skipped on Web)
+      if (!kIsWeb) {
+        const AndroidInitializationSettings initializationSettingsAndroid =
+            AndroidInitializationSettings('@mipmap/ic_launcher');
 
-      const InitializationSettings initializationSettings =
-          InitializationSettings(android: initializationSettingsAndroid);
+        const InitializationSettings initializationSettings =
+            InitializationSettings(android: initializationSettingsAndroid);
 
-      await _localNotifications.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) async {
-          if (response.actionId == 'ACTION_CALL_DIRECT' && response.payload != null) {
-            final uri = Uri.parse('tel:${response.payload}');
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri);
+        await _localNotifications.initialize(
+          initializationSettings,
+          onDidReceiveNotificationResponse: (NotificationResponse response) async {
+            if (response.actionId == 'ACTION_CALL_DIRECT' && response.payload != null) {
+              final uri = Uri.parse('tel:${response.payload}');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
+            } else if (response.payload != null && onNotificationOrderTap != null) {
+              onNotificationOrderTap(response.payload!);
             }
-          } else if (response.payload != null && onNotificationOrderTap != null) {
-            onNotificationOrderTap(response.payload!);
-          }
-        },
-      );
+          },
+        );
 
-      if (Platform.isAndroid) {
-        await _localNotifications
-            .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
-            ?.createNotificationChannel(_channel);
+        if (Platform.isAndroid) {
+          await _localNotifications
+              .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin>()
+              ?.createNotificationChannel(_channel);
+        }
       }
 
       // 2. Setup Firebase if initialized
