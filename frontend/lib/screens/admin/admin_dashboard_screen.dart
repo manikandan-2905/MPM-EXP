@@ -454,6 +454,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => widget.onSwitchTab?.call(3),
+              icon: const Icon(Icons.campaign_rounded, size: 20, color: Color(0xFF0284C7)),
+              label: const Text('Push Broadcast Desk (Updates, Offers & 15-Min Alerts)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                side: const BorderSide(color: Color(0xFFBAE6FD)),
+                backgroundColor: const Color(0xFFF0F9FF),
+                foregroundColor: const Color(0xFF0369A1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
 
           // Fleet Status (Riders on Duty)

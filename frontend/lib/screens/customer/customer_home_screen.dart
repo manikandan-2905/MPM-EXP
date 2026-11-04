@@ -87,6 +87,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   String _riderTab = 'active'; // 'active' | 'completed'
   String _closingPaymentMode = 'Cash'; // 'Cash' | 'UPI'
   List<Map<String, dynamic>> _riderCompletedTrips = [];
+  final Set<String> _expandedOrderIds = {};
+  List<Map<String, dynamic>> _inAppNotifications = [];
 
   // ── Address autocomplete state ─────────────────────────────────────
   List<PlaceSuggestion> _pickupSuggestions = [];
@@ -105,6 +107,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationService().ensureDeviceRegistered(role: 'CUSTOMER');
     _loadStoredPreferences();
     _fetchLiveActiveRiders();
 
@@ -142,10 +145,22 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _loadStoredPreferences() async {
+    final notifs = await PreferencesService.getInAppNotifications();
+    if (mounted) setState(() => _inAppNotifications = notifs);
     // Keep primary phone empty by default unless user inputs it
     _syncPhoneCheckboxes();
 
     final lastRole = await PreferencesService.getLastViewMode();
+    final isAdmin = await PreferencesService.isAdminLoggedIn();
+    if (isAdmin && lastRole == 'admin') {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminShellScreen()),
+        );
+        return;
+      }
+    }
     final riderSession = await PreferencesService.getRiderSession();
     if (riderSession['id'] != null && riderSession['id']!.isNotEmpty) {
       final cachedRider = RiderModel(
@@ -480,6 +495,70 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     });
   }
 
+  Widget _buildQuickLocalityChips({required Function(String) onSelect}) {
+    final quickPlaces = [
+      {'label': 'Kodimaram (கொடிமரம்)', 'full': 'Kodimaram Main Road, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Anna Street (அண்ணா தெரு)', 'full': 'Anna Street, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Bazaar Road (பஜார்)', 'full': 'Bazaar Main Road, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Periya Theru (பெரிய தெரு)', 'full': 'Periya Theru (Big Street), Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Uzhavar Sandhai', 'full': 'Uzhavar Sandhai, Market Road, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Hameempuram 4th St', 'full': 'Hameempuram 4th Street, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Rahmath Nagar', 'full': 'Rahmath Nagar Main Road, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Kurichi (குறிச்சி)', 'full': 'Kurichi Road, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Al Ameen Nagar', 'full': 'Al Ameen Nagar, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Jinnah Nagar', 'full': 'Jinnah Nagar, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Shifa Hospital', 'full': 'Shifa Hospital, Main Road, Melapalayam, Tirunelveli - 627005'},
+      {'label': 'Chinna Theru', 'full': 'Chinna Theru, Melapalayam, Tirunelveli - 627005'},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'QUICK SELECT LOCAL AREA (எளிதாக தேர்ந்தெடுக்க):',
+            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.3),
+          ),
+          const SizedBox(height: 5),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: quickPlaces.map((p) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: InkWell(
+                    onTap: () => onSelect(p['full']!),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.place_outlined, size: 10, color: Color(0xFF15803D)),
+                          const SizedBox(width: 4),
+                          Text(
+                            p['label']!,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAddressSuggestionList({
     required List<PlaceSuggestion> suggestions,
     required bool isSearching,
@@ -567,6 +646,140 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
+  void _showNoRidersAvailableOrderDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.two_wheeler_outlined, color: Color(0xFFDC2626), size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'No Rider Available Now',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'தற்போது ரைடர்கள் யாரும் ஆன்லைனில் இல்லை.',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Please wait a few minutes for a rider to come online before placing your order, or contact our helpline directly for instant booking.',
+              style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.4),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'ரைடர் வந்தவுடன் உங்கள் ஆர்டர் விரைவாக டெலிவரி செய்யப்படும். ஆர்டர் தொடர்பான விபரங்களுக்கு அழைக்கவும்:',
+              style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.phone, size: 14, color: Color(0xFF15803D)),
+                          label: const Text('6379329930', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF86EFAC)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _launchPhone('6379329930');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.phone, size: 14, color: Color(0xFF15803D)),
+                          label: const Text('7639483476', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF86EFAC)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _launchPhone('7639483476');
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Wait & Try Later', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 14),
+                  label: const Text('Check Again'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF15803D),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await _fetchLiveActiveRiders();
+                    if (_activeRidersCount > 0) {
+                      _placeCustomerOrder();
+                    } else {
+                      if (mounted) _showNoRidersAvailableOrderDialog();
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _placeCustomerOrder() async {
     final phone = _primaryPhoneCtrl.text.trim();
     final pickupPhone = _pickupPhoneCtrl.text.trim();
@@ -583,6 +796,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       );
       return;
     }
+
+    // Associate customer phone with device FCM token seamlessly
+    NotificationService().ensureDeviceRegistered(role: 'CUSTOMER', phone: effectivePhone);
 
     final isBuy = _activeTab == 'buy';
 
@@ -660,6 +876,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         );
         return;
       }
+    }
+
+    // 4. Pre-Order Placement Rider Availability Guard
+    // Check if any rider is online right now before accepting order
+    int availableRiders = _activeRidersCount;
+    try {
+      final freshCount = await _apiService.getActiveRidersCount();
+      availableRiders = freshCount;
+      if (mounted) setState(() => _activeRidersCount = freshCount);
+    } catch (_) {}
+
+    if (availableRiders <= 0) {
+      if (!mounted) return;
+      _showNoRidersAvailableOrderDialog();
+      return;
     }
 
     setState(() => _isPlacingOrder = true);
@@ -800,7 +1031,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             const SizedBox(height: 10),
             const Text(
-              'You can place a new order or call our support desk (Mani: 7639483476) for instant help.',
+              'You can place a new order or call our support desk (7639483476 / 6379329930) for instant help.',
               style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
             ),
           ],
@@ -811,7 +1042,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               Navigator.pop(ctx);
               _launchPhone('7639483476');
             },
-            child: const Text('Call Mani (Founder)', style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
+            child: const Text('Call Support', style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -844,17 +1075,56 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       );
       return;
     }
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Cancel Order?', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Are you sure you want to cancel this order before rider confirmation?\n\n(ஆர்டரை ரத்து செய்ய விரும்புகிறீர்களா?)',
+          style: TextStyle(fontSize: 13, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep Order', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
     try {
       await _apiService.cancelOrder(_activeOrder!.id);
       await PreferencesService.clearCustomerActiveOrderId();
+      if (mounted) {
+        setState(() {
+          _activeOrder = null;
+          _showTrackingModal = false;
+        });
+      }
       await _refreshActiveOrder();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order cancelled successfully.'), backgroundColor: Color(0xFF059669)),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Order cancelled successfully.'), backgroundColor: Color(0xFF059669)),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cancellation error: $e'), backgroundColor: Colors.redAccent),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Cancellation error: '), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
@@ -889,6 +1159,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     if (password == 'mani2006') {
       _riderLoginPasswordCtrl.clear();
       await PreferencesService.saveAdminSession();
+      await PreferencesService.saveLastViewMode('admin');
       setState(() {
         _isRiderLoading = false;
         _currentViewMode = 'customer';
@@ -1174,6 +1445,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
+  Future<void> _launchEmail(String email) async {
+    final uri = Uri.parse('mailto:$email?subject=ZIPPO%20Customer%20Support');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   Future<void> _launchPhone(String phone) async {
     final clean = phone.replaceAll(RegExp(r'\D'), '');
     final uri = Uri.parse('tel:$clean');
@@ -1193,7 +1471,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   Future<void> _launchWhatsAppEnquiry({String? message}) async {
-    final text = Uri.encodeComponent(message ?? 'Vanakkam Mani! I have an enquiry regarding ZIPPO MPM Express.');
+    final text = Uri.encodeComponent(message ?? 'Vanakkam ZIPPO Team! I have an enquiry regarding ZIPPO delivery service.');
     final url = Uri.parse('https://wa.me/917639483476?text=$text');
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -1394,7 +1672,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   else if (riders.isEmpty) ...[
                     // No Riders Available Card (Shown when no one is available)
                     Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1402,9 +1680,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
@@ -1413,21 +1691,87 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: const BoxDecoration(
-                              color: Color(0xFFF1F5F9),
+                              color: Color(0xFFFEF2F2),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.two_wheeler_outlined, size: 32, color: Color(0xFF94A3B8)),
+                            child: const Icon(Icons.two_wheeler_outlined, size: 32, color: Color(0xFFEF4444)),
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'No Riders Available',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF1E293B)),
+                            'No rider available now',
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF0F172A)),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           const Text(
-                            'No one is available right now. Please place your order directly in the app or check back in a few minutes.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.4),
+                            'தற்போது ரைடர்கள் யாரும் ஆன்லைனில் இல்லை',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'For order enquiry contact:',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF334155)),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.phone, size: 14),
+                                  label: const Text('6379329930', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF15803D),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _launchPhone('6379329930');
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.phone, size: 14),
+                                  label: const Text('7639483476', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF15803D),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _launchPhone('7639483476');
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF15803D)),
+                              label: const Text('WhatsApp Order Enquiry', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF86EFAC)),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _launchWhatsAppEnquiry();
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -1514,7 +1858,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   // ── Download QR, Share & Policy Bottom Sheet ───────────────────────
   void _openAppDownloadAndPolicySheet() {
-    const String downloadUrl = 'https://qrco.de/NIPPO';
+    const String downloadUrl = AppConstants.appDownloadUrl;
 
     showModalBottomSheet(
       context: context,
@@ -1632,7 +1976,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 Icon(Icons.verified_rounded, size: 12, color: Color(0xFF3A642B)),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Official Android APK QR Code',
+                                  'Official Android & iOS App QR Code',
                                   style: TextStyle(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w800,
@@ -1669,7 +2013,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                           ),
                           const SizedBox(height: 14),
                           const Text(
-                            'Scan with any Camera or QR Scanner app to download the latest APK directly.',
+                            'Scan with any Camera or QR Scanner app to open the app download page (Android & iOS).',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11.5,
@@ -1758,7 +2102,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                   ),
                                   onPressed: () {
                                     Share.share(
-                                      '🛵 Download ZIPPO (Melapalayam Express) - Hyperlocal goods & errand delivery in Melapalayam & Tirunelveli!\n\n📲 Direct Download: ' + downloadUrl + '\n\nContact Mani (Founder): 7639483476',
+                                      '🛵 Download ZIPPO (Melapalayam Express) - Hyperlocal goods & errand delivery in Melapalayam & Tirunelveli!\n\n📲 Direct Download: ' + downloadUrl + '\n\nSupport Helpline: 7639483476 / 6379329930 | Email: zippompm@gmail.com',
                                       subject: 'ZIPPO MPM Express App Download',
                                     );
                                   },
@@ -1968,7 +2312,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
                     const SizedBox(height: 12),
 
-                    // Developer & Founder Contact Card
+                    // ZIPPO Customer Support Desk Card
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1981,18 +2325,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         children: [
                           Row(
                             children: const [
-                              Icon(Icons.headset_mic_rounded, size: 18, color: Color(0xFF38BDF8)),
+                              Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFF38BDF8)),
                               SizedBox(width: 8),
                               Text(
-                                'Developer & Founder Direct Line',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                                'ZIPPO Customer Support Desk',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13.5),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           const Text(
-                            'Mani (Founder & Developer): +91 7639483476\nReach out for any service enquiries, partnership, or rider registration.',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.4),
+                            '📞 Helpline: +91 7639483476 / +91 6379329930\n✉️ Email: zippompm@gmail.com\nNeed order assistance, parcel inquiry, or delivery support? Reach our support team directly.',
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.45),
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -2006,11 +2350,43 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   icon: const Icon(Icons.phone, size: 13),
-                                  label: const Text('Call Mani', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  label: const Text('Call: 7639483476', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                                   onPressed: () => _launchPhone('7639483476'),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0369A1),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.phone, size: 13),
+                                  label: const Text('Call: 6379329930', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                  onPressed: () => _launchPhone('6379329930'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF38BDF8),
+                                    side: const BorderSide(color: Color(0xFF0284C7)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  icon: const Icon(Icons.email_outlined, size: 13),
+                                  label: const Text('zippompm@gmail.com', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                                  onPressed: () => _launchEmail('zippompm@gmail.com'),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
                               Expanded(
                                 child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
@@ -2020,7 +2396,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   icon: const Icon(Icons.chat, size: 13),
-                                  label: const Text('WhatsApp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  label: const Text('WhatsApp Help', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                                   onPressed: () => _launchWhatsAppEnquiry(),
                                 ),
                               ),
@@ -2029,7 +2405,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -2109,123 +2484,192 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(modalCtx).size.height * 0.88,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
-                  borderRadius: BorderRadius.circular(999),
-                ),
+        return StatefulBuilder(
+          builder: (sheetCtx, setModalState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(modalCtx).size.height * 0.88,
               ),
-              const SizedBox(height: 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE5F6DE),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long_rounded,
-                            size: 20,
-                            color: Color(0xFF3A642B),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
                           children: [
-                            const Text(
-                              'My Orders & History',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE5F6DE),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.receipt_long_rounded,
+                                size: 20,
+                                color: Color(0xFF3A642B),
                               ),
                             ),
-                            Text(
-                              '${orders.length} order${orders.length == 1 ? "" : "s"} recorded on this device',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'My Orders & History',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                Text(
+                                  ' order recorded on this device',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(modalCtx),
+                        ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
-                      onPressed: () => Navigator.pop(modalCtx),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(color: Color(0xFFE2E8F0)),
+                  ),
+                  const Divider(color: Color(0xFFE2E8F0)),
 
-              Expanded(
-                child: orders.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.history_toggle_off_rounded, size: 52, color: Color(0xFF94A3B8)),
-                              SizedBox(height: 12),
-                              Text(
-                                'No past orders yet',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF334155)),
+                  Expanded(
+                    child: orders.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(Icons.history_toggle_off_rounded, size: 52, color: Color(0xFF94A3B8)),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'No past orders yet',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF334155)),
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Book a Pick and Deliver or Buy For Me delivery to track it and contact your rider anytime here.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  ),
+                                ],
                               ),
-                              SizedBox(height: 6),
-                              Text(
-                                'Book a Pick and Deliver or Buy For Me delivery to track it and contact your rider anytime here.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                              ),
-                            ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                            itemCount: orders.length + 1,
+                            itemBuilder: (ctx, index) {
+                              if (index == orders.length) {
+                                return _buildCustomerHistoryHelplineCard();
+                              }
+                              final order = orders[index];
+                              return _buildCustomerHistoryOrderCard(order, modalCtx, setModalState, orders);
+                            },
                           ),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        itemCount: orders.length + 1,
-                        itemBuilder: (ctx, index) {
-                          if (index == orders.length) {
-                            return _buildCustomerHistoryHelplineCard();
-                          }
-                          final order = orders[index];
-                          return _buildCustomerHistoryOrderCard(order, modalCtx);
-                        },
-                      ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildCustomerHistoryOrderCard(OrderModel order, BuildContext modalCtx) {
+  Future<void> _confirmDeleteLocalOrder(
+    OrderModel order,
+    StateSetter setModalState,
+    List<OrderModel> ordersList,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 22),
+            SizedBox(width: 8),
+            Text('Delete from Device?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Text(
+          'Remove Order # from this device history?\n\n'
+          '⚠️ Note: This only clears it from this phone\'s history. The order remains recorded in the system.\n\n'
+          '(இது உங்கள் போனிலிருந்து மட்டுமே நீக்கப்படும். சர்வரில் இருக்கும்.)',
+          style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx, false),
+            child: const Text('Keep', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(dlgCtx, true),
+            child: const Text('Delete (நீக்கு)', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await PreferencesService.removeOrderFromStore(order.id);
+      await PreferencesService.removeOrderFromStore(order.orderNumber);
+      setModalState(() {
+        ordersList.removeWhere((o) => o.id == order.id || o.orderNumber == order.orderNumber);
+      });
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Order # deleted from this device.'),
+            backgroundColor: const Color(0xFF334155),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildCustomerHistoryOrderCard(
+    OrderModel order,
+    BuildContext modalCtx,
+    StateSetter setModalState,
+    List<OrderModel> ordersList,
+  ) {
     final isDelivered = order.status == 'DELIVERED';
     final isCancelled = order.status == 'CANCELLED';
     final isOngoing = !isDelivered && !isCancelled;
+    final isExpanded = _expandedOrderIds.contains(order.id) || _expandedOrderIds.contains(order.orderNumber);
 
     Color badgeBg;
     Color badgeText;
@@ -2267,19 +2711,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isOngoing ? const Color(0xFF76C457).withOpacity(0.6) : const Color(0xFFE2E8F0),
+          color: isOngoing ? const Color(0xFF76C457) : const Color(0xFFE2E8F0),
           width: isOngoing ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
             color: isOngoing
-                ? const Color(0xFF76C457).withOpacity(0.1)
-                : Colors.black.withOpacity(0.03),
+                ? const Color(0xFF76C457).withOpacity(0.12)
+                : Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -2288,278 +2731,366 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Order Number + Status Badge + Fare
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      '#${order.orderNumber}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: badgeBg,
-                        borderRadius: BorderRadius.circular(9999),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: badgeText),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '₹${order.fare}',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Order type and items
-          Row(
-            children: [
-              Icon(
-                order.orderType == 'BUY_FOR_ME' ? Icons.shopping_bag_outlined : Icons.inventory_2_outlined,
-                size: 13,
-                color: const Color(0xFF64748B),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  order.orderType == 'BUY_FOR_ME'
-                      ? 'Buy For Me (${order.shopName ?? "Market"})'
-                      : 'Pick and Deliver (${order.category})',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
-                ),
-              ),
-            ],
-          ),
-          if (order.itemsList.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              order.itemsList.join(', '),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          const SizedBox(height: 8),
-
-          // Landmarks & Contact numbers
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Top Header: Order Number + Status Badge + Big Visible Price Tag + Delete Icon
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Pickup
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.circle, size: 8, color: Color(0xFF10B981)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                // Order Number & Status
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
                           Text(
-                            order.pickupAddress,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (order.pickupPhone != null && order.pickupPhone!.isNotEmpty)
-                            InkWell(
-                              onTap: () => _launchPhone(order.pickupPhone!),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.phone, size: 10, color: Color(0xFF0284C7)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Pickup Contact: ${order.pickupPhone}',
-                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            '#' + order.orderNumber,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: 0.2,
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(9999),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: badgeText),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Divider(height: 1, color: Color(0xFFE2E8F0)),
-                ),
-                // Drop
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.location_on, size: 10, color: Color(0xFFEF4444)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            order.dropAddress,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (order.dropPhone != null && order.dropPhone!.isNotEmpty)
-                            InkWell(
-                              onTap: () => _launchPhone(order.dropPhone!),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.phone, size: 10, color: Color(0xFF0284C7)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Drop Contact: ${order.dropPhone}',
-                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
+                      const SizedBox(height: 3),
+                      Text(
+                        _formatTripTime(order.createdAt.toIso8601String()),
+                        style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
                       ),
+                    ],
+                  ),
+                ),
+
+                // BOLD PROMINENT PRICE BADGE
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                  ),
+                  child: Text(
+                    '₹' + order.fare.toString(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: Color(0xFF15803D),
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+
+                // Delete Trash Icon
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFEF4444)),
+                  tooltip: 'Delete from device history',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  splashRadius: 18,
+                  onPressed: () => _confirmDeleteLocalOrder(order, setModalState, ordersList),
                 ),
               ],
             ),
           ),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
 
-          // PICKED RIDER HIGHLIGHT CARD
-          if (hasRider) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF86EFAC)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFDCFCE7),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.two_wheeler_rounded, size: 16, color: Color(0xFF15803D)),
+          // Service / Items Summary
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      order.orderType == 'BUY_FOR_ME' ? Icons.shopping_bag_outlined : Icons.inventory_2_outlined,
+                      size: 14,
+                      color: const Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        order.orderType == 'BUY_FOR_ME'
+                            ? 'Buy For Me (' + (order.shopName ?? 'Market') + ')'
+                            : 'Pick and Deliver (' + order.category + ')',
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
+                    ),
+                  ],
+                ),
+                if (order.itemsList.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    order.itemsList.join(', '),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    maxLines: isExpanded ? 6 : 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // Expanded Details: Addresses, Rider info, Live track button
+          if (isExpanded) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Pickup & Drop
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Pickup
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              order.riderName ?? 'Assigned Rider',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF14532D)),
-                            ),
-                            Text(
-                              order.riderPhone ?? 'Rider on duty',
-                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF166534)),
+                            const Icon(Icons.circle, size: 8, color: Color(0xFF10B981)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    order.pickupAddress,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (order.pickupPhone != null && order.pickupPhone!.isNotEmpty)
+                                    InkWell(
+                                      onTap: () => _launchPhone(order.pickupPhone!),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.phone, size: 10, color: Color(0xFF0284C7)),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Pickup Contact: ' + order.pickupPhone!,
+                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  if (order.riderPhone != null && order.riderPhone!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF15803D),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 7),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            icon: const Icon(Icons.phone, size: 12),
-                            label: const Text('Call Rider', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            onPressed: () => _launchPhone(order.riderPhone!),
-                          ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Divider(height: 1, color: Color(0xFFE2E8F0)),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF25D366),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 7),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        // Drop
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.location_on, size: 10, color: Color(0xFFEF4444)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    order.dropAddress,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (order.dropPhone != null && order.dropPhone!.isNotEmpty)
+                                    InkWell(
+                                      onTap: () => _launchPhone(order.dropPhone!),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.phone, size: 10, color: Color(0xFF0284C7)),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Drop Contact: ' + order.dropPhone!,
+                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                            icon: const Icon(Icons.chat, size: 12),
-                            label: const Text('WhatsApp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                            onPressed: () => _launchWhatsApp(order.riderPhone!, order.orderNumber),
-                          ),
+                          ],
                         ),
                       ],
                     ),
+                  ),
+
+                  // Assigned Rider
+                  if (hasRider) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFDCFCE7),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.two_wheeler_rounded, size: 16, color: Color(0xFF15803D)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      order.riderName ?? 'Assigned Rider',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF14532D)),
+                                    ),
+                                    Text(
+                                      order.riderPhone ?? 'Rider on duty',
+                                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF166534)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (order.riderPhone != null && order.riderPhone!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF15803D),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 7),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.phone, size: 12),
+                                    label: const Text('Call Rider', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _launchPhone(order.riderPhone!),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF25D366),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 7),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.chat, size: 12),
+                                    label: const Text('WhatsApp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _launchWhatsApp(order.riderPhone!, order.orderNumber),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
+
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isOngoing ? const Color(0xFF76C457) : const Color(0xFF0F172A),
+                        foregroundColor: isOngoing ? const Color(0xFF0F172A) : Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: Icon(
+                        isOngoing ? Icons.navigation_rounded : Icons.visibility_rounded,
+                        size: 14,
+                      ),
+                      label: Text(
+                        isOngoing ? '📍 Live Track Order' : 'View Full Order Details',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(modalCtx);
+                        setState(() {
+                          _activeOrder = order;
+                          _showTrackingModal = true;
+                        });
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
 
-          const SizedBox(height: 10),
-
-          // Bottom Action: Reopen Live Tracking if ongoing, or view full details
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Placed: ${_formatTripTime(order.createdAt.toIso8601String())}',
-                style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+          // Expand / Collapse Bar
+          InkWell(
+            onTap: () {
+              setModalState(() {
+                if (isExpanded) {
+                  _expandedOrderIds.remove(order.id);
+                  _expandedOrderIds.remove(order.orderNumber);
+                } else {
+                  _expandedOrderIds.add(order.id);
+                  _expandedOrderIds.add(order.orderNumber);
+                }
+              });
+            },
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+                border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
               ),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isOngoing ? const Color(0xFF76C457) : const Color(0xFF0F172A),
-                  foregroundColor: isOngoing ? const Color(0xFF0F172A) : Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
-                ),
-                icon: Icon(
-                  isOngoing ? Icons.navigation_rounded : Icons.visibility_rounded,
-                  size: 13,
-                ),
-                label: Text(
-                  isOngoing ? '📍 Live Track Order' : 'View Order Details',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
-                ),
-                onPressed: () {
-                  Navigator.pop(modalCtx);
-                  setState(() {
-                    _activeOrder = order;
-                    _showTrackingModal = true;
-                  });
-                },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isExpanded ? 'Hide details ▲' : 'Tap for full details ▼ (விபரம் காண்க)',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7)),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -2580,18 +3111,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         children: [
           Row(
             children: const [
-              Icon(Icons.headset_mic_rounded, size: 18, color: Color(0xFF38BDF8)),
+              Icon(Icons.support_agent_rounded, size: 20, color: Color(0xFF38BDF8)),
               SizedBox(width: 8),
               Text(
-                'ZIPPO Founder & Support Desk',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13),
+                'ZIPPO Customer Support Desk',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13.5),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           const Text(
-            'Founder & Developer: Mani (+91 7639483476)\nHave any delivery questions, app enquiries, or order support? Contact directly 24/7.',
-            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.4),
+            '📞 Helpline: +91 7639483476 / +91 6379329930\n✉️ Email: zippompm@gmail.com\nHave any delivery questions, app enquiries, or order support? Contact directly 24/7.',
+            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.45),
           ),
           const SizedBox(height: 12),
           Row(
@@ -2605,11 +3136,43 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.phone, size: 13),
-                  label: const Text('Call Mani', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: const Text('Call: 7639483476', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                   onPressed: () => _launchPhone('7639483476'),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0369A1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.phone, size: 13),
+                  label: const Text('Call: 6379329930', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                  onPressed: () => _launchPhone('6379329930'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF38BDF8),
+                    side: const BorderSide(color: Color(0xFF0284C7)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.email_outlined, size: 13),
+                  label: const Text('zippompm@gmail.com', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  onPressed: () => _launchEmail('zippompm@gmail.com'),
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
@@ -2619,7 +3182,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.chat, size: 13),
-                  label: const Text('WhatsApp Mani', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: const Text('WhatsApp Help', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
                   onPressed: () => _launchWhatsAppEnquiry(),
                 ),
               ),
@@ -2725,9 +3288,56 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  // Notification Center Drawer Popup (from Prototype)
+  Future<void> _deleteInAppNotificationWithUndo(Map<String, dynamic> item) async {
+    final notifId = item['id']?.toString() ?? '';
+    final index = _inAppNotifications.indexOf(item);
+    setState(() {
+      _inAppNotifications.remove(item);
+    });
+    await PreferencesService.removeInAppNotification(notifId);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: const [
+            Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Notification deleted',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1E293B),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        action: SnackBarAction(
+          label: 'UNDO (2s)',
+          textColor: const Color(0xFF76C457),
+          onPressed: () async {
+            if (index >= 0 && index <= _inAppNotifications.length) {
+              _inAppNotifications.insert(index, item);
+            } else {
+              _inAppNotifications.add(item);
+            }
+            setState(() {});
+            await PreferencesService.restoreInAppNotification(item);
+          },
+        ),
+      ),
+    );
+  }
+
+  // Live In-App Notification Center Drawer
   Widget _buildNotificationDrawer() {
     final topOffset = MediaQuery.of(context).padding.top + 74;
+    final hasActiveOrder = _activeOrder != null;
+
     return Positioned(
       top: topOffset,
       left: 16,
@@ -2735,6 +3345,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       child: Material(
         color: Colors.transparent,
         child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.72,
+          ),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -2751,114 +3364,298 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
                       Container(
-                        width: 26,
-                        height: 26,
+                        width: 28,
+                        height: 28,
                         decoration: const BoxDecoration(
                           color: Color(0xFFE5F6DE),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.notifications_active_rounded, size: 14, color: Color(0xFF467D32)),
+                        child: const Icon(Icons.notifications_active_rounded, size: 15, color: Color(0xFF467D32)),
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Notifications & Alerts',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                        'Live Alerts & Notifications',
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF0F172A)),
                       ),
                     ],
                   ),
-                  GestureDetector(
-                    onTap: () => setState(() => _showNotificationDrawer = false),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF1F5F9),
-                        shape: BoxShape.circle,
+                  Row(
+                    children: [
+                      if (_inAppNotifications.isNotEmpty)
+                        InkWell(
+                          onTap: () async {
+                            await PreferencesService.clearInAppNotifications();
+                            if (mounted) setState(() => _inAppNotifications = []);
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              'Clear All',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ),
+                      GestureDetector(
+                        onTap: () => setState(() => _showNotificationDrawer = false),
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F5F9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
+                        ),
                       ),
-                      child: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
-                    ),
+                    ],
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4FBF0),
-                  border: Border.all(color: const Color(0xFFCBEDBC)),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF76C457),
-                        shape: BoxShape.circle,
+
+              // Content Body
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // 1. Live Active Order Card (Real)
+                      if (hasActiveOrder) ...[
+                        InkWell(
+                          onTap: () {
+                            setState(() {
+                              _showNotificationDrawer = false;
+                              _showTrackingModal = true;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              border: Border.all(color: const Color(0xFF86EFAC), width: 1.5),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFDCFCE7),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.delivery_dining_rounded, size: 18, color: Color(0xFF15803D)),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Order #' + _activeOrder!.orderNumber,
+                                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF14532D)),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF15803D),
+                                              borderRadius: BorderRadius.circular(999),
+                                            ),
+                                            child: const Text(
+                                              'LIVE TRACK',
+                                              style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Status: ' + _activeOrder!.status + ' • ₹' + _activeOrder!.fare.toString(),
+                                        style: const TextStyle(fontSize: 11, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // 2. Real Fleet Status Card
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: _activeRidersCount > 0 ? const Color(0xFFF4FBF0) : const Color(0xFFF8FAFC),
+                          border: Border.all(color: _activeRidersCount > 0 ? const Color(0xFFCBEDBC) : const Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 4),
+                              decoration: BoxDecoration(
+                                color: _activeRidersCount > 0 ? const Color(0xFF76C457) : const Color(0xFF94A3B8),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _activeRidersCount > 0 ? 'Riders Active in Melapalayam' : 'Fleet Standby',
+                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF0F172A)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _activeRidersCount > 0
+                                        ? _activeRidersCount.toString() + ' active rider(s) on duty for 15-minute delivery.'
+                                        : 'Riders are on standby. Orders are automatically dispatched to active riders.',
+                                    style: const TextStyle(fontSize: 10, color: Color(0xFF475569)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('Active Riders on Duty', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF0F172A))),
-                          SizedBox(height: 2),
-                          Text('3 riders currently active in Melapalayam Bazaar & Kurichi.', style: TextStyle(fontSize: 10, color: Color(0xFF475569))),
-                          SizedBox(height: 2),
-                          Text('2 mins ago', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF467D32))),
-                        ],
-                      ),
-                    ),
-                  ],
+
+                      // 3. In-App Notifications List with Left-Swipe Dismiss and Delete Icon
+                      if (_inAppNotifications.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: const [
+                              Icon(Icons.swipe_left_rounded, size: 13, color: Color(0xFF94A3B8)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Swipe left or tap trash icon to delete notification',
+                                style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ..._inAppNotifications.map((n) {
+                          final notifKey = ValueKey(n['id']?.toString() ?? UniqueKey().toString());
+                          return Dismissible(
+                            key: notifKey,
+                            direction: DismissDirection.endToStart, // Swipe left
+                            background: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.only(right: 16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              alignment: Alignment.centerRight,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: const [
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Icon(Icons.delete_rounded, color: Colors.white, size: 18),
+                                ],
+                              ),
+                            ),
+                            onDismissed: (_) {
+                              _deleteInAppNotificationWithUndo(n);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    margin: const EdgeInsets.only(top: 5),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF0284C7),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          n['title'] ?? 'Alert',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF0F172A)),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          n['body'] ?? '',
+                                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569), height: 1.3),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Dedicated Delete Icon Button
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFF94A3B8)),
+                                    tooltip: 'Delete notification',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 16,
+                                    onPressed: () => _deleteInAppNotificationWithUndo(n),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+
+                      // 4. Clean Empty State (When no active order and no notifications)
+                      if (!hasActiveOrder && _inAppNotifications.isEmpty && _activeRidersCount == 0) ...[
+                        const SizedBox(height: 16),
+                        const Icon(Icons.notifications_none_rounded, size: 36, color: Color(0xFFCBD5E1)),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'No new notifications',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF475569)),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Real-time alerts will appear here when an order is placed, claimed, or delivered.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFCBD5E1),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('Fair Hyperlocal Pricing', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF0F172A))),
-                          SizedBox(height: 2),
-                          Text('Base fare ₹30 for first 2 km anywhere inside Melapalayam.', style: TextStyle(fontSize: 10, color: Color(0xFF475569))),
-                          SizedBox(height: 2),
-                          Text('1 hour ago', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 10),
               SizedBox(
                 width: double.infinity,
                 child: TextButton(
@@ -2878,7 +3675,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  // ----------------------------------------------------
+    // ----------------------------------------------------
   // 2. VIEW A: CUSTOMER GUEST VIEW
   // ----------------------------------------------------
   Widget _buildCustomerView() {
@@ -3017,9 +3814,17 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   // Header actions: Notification Bell & Discreet Rider Portal
                   Row(
                     children: [
-                      // Dedicated Notification Bell with animated counter badge
+                      // Dedicated Notification Bell with dynamic live counter badge
                       GestureDetector(
-                        onTap: () => setState(() => _showNotificationDrawer = !_showNotificationDrawer),
+                        onTap: () async {
+                          final notifs = await PreferencesService.getInAppNotifications();
+                          if (mounted) {
+                            setState(() {
+                              _inAppNotifications = notifs;
+                              _showNotificationDrawer = !_showNotificationDrawer;
+                            });
+                          }
+                        },
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
@@ -3033,29 +3838,30 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               ),
                               child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 17),
                             ),
-                            Positioned(
-                              top: -2,
-                              right: -2,
-                              child: Container(
-                                width: 15,
-                                height: 15,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF76C457),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF76C457).withOpacity(0.6),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
-                                ),
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  '2',
-                                  style: TextStyle(color: Color(0xFF0F172A), fontSize: 9, fontWeight: FontWeight.w900),
+                            if ((_activeOrder != null ? 1 : 0) + _inAppNotifications.length > 0)
+                              Positioned(
+                                top: -2,
+                                right: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF76C457),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF76C457).withOpacity(0.6),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '',
+                                    style: const TextStyle(color: Color(0xFF0F172A), fontSize: 9, fontWeight: FontWeight.w900),
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -3083,7 +3889,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ),
                       const SizedBox(width: 8),
 
-                      // Direct Support & Enquiry Trigger to Mani (Founder & Developer)
+                      // Direct Customer Support & Helpline Trigger
                       GestureDetector(
                         onTap: () => _launchWhatsAppEnquiry(),
                         child: Container(
@@ -3692,6 +4498,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     ),
                   ),
                 ),
+              if (_pickupAddressCtrl.text.isEmpty && _pickupSuggestions.isEmpty)
+                _buildQuickLocalityChips(
+                  onSelect: (addr) => setState(() {
+                    _pickupAddressCtrl.text = addr;
+                    _pickupSuggestions = [];
+                  }),
+                ),
               _buildAddressSuggestionList(
                 suggestions: _pickupSuggestions,
                 isSearching: _isSearchingPickup,
@@ -3828,6 +4641,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       ],
                     ),
                   ),
+                ),
+              if (_dropAddressCtrl.text.isEmpty && _dropSuggestions.isEmpty)
+                _buildQuickLocalityChips(
+                  onSelect: (addr) => setState(() {
+                    _dropAddressCtrl.text = addr;
+                    _dropSuggestions = [];
+                  }),
                 ),
               _buildAddressSuggestionList(
                 suggestions: _dropSuggestions,
@@ -3980,8 +4800,47 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             decoration: _cleanInputDecoration(itemHint),
           ),
           const SizedBox(height: 10),
-          const Text('DELIVERY ADDRESS (சேர்க்க வேண்டிய இடம்)',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF43F5E),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFFECDD3), width: 2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'DELIVERY ADDRESS (சேர்க்க வேண்டிய இடம்)',
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF334155), letterSpacing: 0.5),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: () => _detectCurrentGPS('buyDrop'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5F6DE),
+                    border: Border.all(color: const Color(0xFFCBEDBC)),
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.location_searching, size: 10, color: Color(0xFF3A642B)),
+                      SizedBox(width: 4),
+                      Text('Use GPS ', style: TextStyle(color: Color(0xFF3A642B), fontWeight: FontWeight.bold, fontSize: 9.5)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Stack(
             children: [
@@ -4049,6 +4908,13 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ],
                 ),
               ),
+            ),
+          if (_buyDropCtrl.text.isEmpty && _buyDropSuggestions.isEmpty)
+            _buildQuickLocalityChips(
+              onSelect: (addr) => setState(() {
+                _buyDropCtrl.text = addr;
+                _buyDropSuggestions = [];
+              }),
             ),
           _buildAddressSuggestionList(
             suggestions: _buyDropSuggestions,

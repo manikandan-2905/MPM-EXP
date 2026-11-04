@@ -295,13 +295,24 @@ class ApiService {
 
     // Fallback: Verified Melapalayam Fleet Passcodes
     final fleetMap = {
-      '02266': {'id': 'r_sudalai', 'name': 'Sudalai', 'phone': '9363302266', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      // Authorized Fleet Riders (10 New + Core)
+      '84985': {'id': 'r_muthu', 'name': 'muthu', 'phone': '9025484985', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '22498': {'id': 'r_vishnu', 'name': 'vishnu', 'phone': '6369022498', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '56221': {'id': 'r_ragu', 'name': 'ragu', 'phone': '8807356221', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '31788': {'id': 'r_alwa', 'name': 'Alwa', 'phone': '9994831788', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '91990': {'id': 'r_psraja', 'name': 'P S Raja', 'phone': '9344191990', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '00702': {'id': 'r_doss', 'name': 'Doss', 'phone': '9787500702', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '31905': {'id': 'r_karthick', 'name': 'karthick', 'phone': '9843391905', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '36061': {'id': 'r_rohit', 'name': 'rohit', 'phone': '9790360616', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '10215': {'id': 'r_saravana', 'name': 'saravana', 'phone': '7010710215', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '71021': {'id': 'r_saravana', 'name': 'saravana', 'phone': '7010710215', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '75106': {'id': 'r_parthi', 'name': 'Parthi', 'phone': '7540075106', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
       '83476': {'id': '6ae34ea6ed8921437ffd42da', 'name': 'V Mani', 'phone': '7639483476', 'isOnline': false, 'totalDeliveries': 3, 'totalEarnings': 105, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
       '82476': {'id': '6ae34ea6ed8921437ffd42da', 'name': 'V Mani', 'phone': '7639483476', 'isOnline': false, 'totalDeliveries': 3, 'totalEarnings': 105, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
-      '29930': {'id': '6ae34ea6ed8921437ffd42db', 'name': 'MS Mani', 'phone': '6379329930', 'isOnline': true, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '29930': {'id': '6ae34ea6ed8921437ffd42db', 'name': 'MS Mani', 'phone': '6379329930', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
+      '02266': {'id': 'r_sudalai', 'name': 'Sudalai', 'phone': '9363302266', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
       '50818': {'id': 'r_hari', 'name': 'Hari', 'phone': '9344590818', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
       '76183': {'id': 'r_mathan', 'name': 'Mathan', 'phone': '9791766183', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
-      '10215': {'id': 'r_santhanam', 'name': 'Santhanam', 'phone': '7010710215', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
       '07394': {'id': 'r_raja', 'name': 'RAJA', 'phone': '7695807394', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0, 'todayOrders': 0, 'cashEarnings': 0, 'upiEarnings': 0},
     };
 
@@ -772,12 +783,21 @@ class ApiService {
 
     // Fallback: Verified Melapalayam Fleet (Only MS Mani is online baseline)
     final sampleFleet = [
-      {'id': 'r_sudalai', 'name': 'Sudalai', 'phone': '9363302266', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_muthu', 'name': 'muthu', 'phone': '9025484985', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_vishnu', 'name': 'vishnu', 'phone': '6369022498', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_ragu', 'name': 'ragu', 'phone': '8807356221', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_alwa', 'name': 'Alwa', 'phone': '9994831788', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_psraja', 'name': 'P S Raja', 'phone': '9344191990', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_doss', 'name': 'Doss', 'phone': '9787500702', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_karthick', 'name': 'karthick', 'phone': '9843391905', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_rohit', 'name': 'rohit', 'phone': '9790360616', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_saravana', 'name': 'saravana', 'phone': '7010710215', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_parthi', 'name': 'Parthi', 'phone': '7540075106', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': '6ae34ea6ed8921437ffd42da', 'name': 'V Mani', 'phone': '7639483476', 'isOnline': false, 'totalDeliveries': 3, 'totalEarnings': 105},
       {'id': '6ae34ea6ed8921437ffd42db', 'name': 'MS Mani', 'phone': '6379329930', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
+      {'id': 'r_sudalai', 'name': 'Sudalai', 'phone': '9363302266', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': 'r_hari', 'name': 'Hari', 'phone': '9344590818', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': 'r_mathan', 'name': 'Mathan', 'phone': '9791766183', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
-      {'id': 'r_santhanam', 'name': 'Santhanam', 'phone': '7010710215', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
       {'id': 'r_raja', 'name': 'RAJA', 'phone': '7695807394', 'isOnline': false, 'totalDeliveries': 0, 'totalEarnings': 0},
     ];
 
@@ -828,5 +848,132 @@ class ApiService {
       if (newStatus == 'DELIVERED') 'completedAt': DateTime.now().toIso8601String(),
     };
     await PreferencesService.saveOrderToStore(ordJson);
+  }
+
+  // --- Notification Broadcast & Device Registration Engine ---
+
+  /// Register or update device FCM token on the backend
+  Future<bool> registerDeviceToken({
+    required String fcmToken,
+    String role = 'CUSTOMER',
+    String? phone,
+    String platform = 'android',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/notifications/register'),
+            headers: _headers,
+            body: jsonEncode({
+              'fcmToken': fcmToken,
+              'role': role,
+              'phone': phone,
+              'platform': platform,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Toggle customer or rider notification preferences (ON / OFF)
+  Future<bool> toggleNotificationPreference({
+    required String fcmToken,
+    required bool enabled,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/notifications/toggle'),
+            headers: _headers,
+            body: jsonEncode({
+              'fcmToken': fcmToken,
+              'enabled': enabled,
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Send Targeted Push Notification Broadcast from Admin Console
+  Future<Map<String, dynamic>> sendAdminBroadcast({
+    required String adminPassword,
+    required String target,
+    required String title,
+    required String message,
+    String type = 'ANNOUNCEMENT',
+    String? actionUrl,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/notifications/broadcast'),
+            headers: _headers,
+            body: jsonEncode({
+              'adminPassword': adminPassword,
+              'target': target,
+              'title': title,
+              'message': message,
+              'type': type,
+              'actionUrl': actionUrl,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null) {
+        return data;
+      }
+      return {'success': false, 'message': data?['message'] ?? 'Failed to send broadcast'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Trigger Quick Alert to Customers: "Riders are Online Now (15 Min Delivery)"
+  Future<Map<String, dynamic>> notifyRidersAvailable({
+    required String adminPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/notifications/riders-online-alert'),
+            headers: _headers,
+            body: jsonEncode({'adminPassword': adminPassword}),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null) {
+        return data;
+      }
+      return {'success': false, 'message': data?['message'] ?? 'Failed to broadcast rider alert'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Fetch registered device counts and audience breakdown for Admin Broadcast Desk
+  Future<Map<String, dynamic>> getNotificationStats() async {
+    try {
+      final response = await http
+          .get(Uri.parse('/notifications/stats'), headers: _headers)
+          .timeout(const Duration(seconds: 8));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null && data['success'] == true) {
+        return Map<String, dynamic>.from(data['stats'] ?? {});
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
   }
 }

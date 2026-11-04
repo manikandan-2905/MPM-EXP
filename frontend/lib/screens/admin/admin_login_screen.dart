@@ -43,6 +43,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           // If network error, still proceed since hardcoded master password matched
         }
         await PreferencesService.saveAdminSession();
+        await PreferencesService.saveLastViewMode('admin');
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -52,6 +53,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         // Attempt backend validation
         await ApiService().loginAdmin(password);
         await PreferencesService.saveAdminSession();
+        await PreferencesService.saveLastViewMode('admin');
         if (!mounted) return;
         Navigator.pushReplacement(
           context,

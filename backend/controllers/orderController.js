@@ -1,6 +1,6 @@
 const Order = require('../models/Order');
 const Rider = require('../models/Rider');
-const { sendMilestoneNotification } = require('../services/fcmService');
+const { sendMilestoneNotification, sendAdminSupervisorAlert } = require('../services/fcmService');
 
 /**
  * Calculates fare according to the Melapalayam fare engine:
@@ -120,6 +120,7 @@ exports.createOrder = async (req, res) => {
             data: {
               orderId: order._id.toString(),
               status: 'ORDER_PLACED',
+              isRider: true,
             },
             orderId: order._id,
             recipientPhone: rider.phone,
@@ -129,6 +130,35 @@ exports.createOrder = async (req, res) => {
     } catch (fcmErr) {
       console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
     }
+
+    // Broadcast High-Priority Push Notification to all Online Riders
+    try {
+      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
+      for (const rider of onlineRiders) {
+        if (rider.fcmToken) {
+          sendMilestoneNotification({
+            token: rider.fcmToken,
+            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
+            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
+            data: {
+              orderId: order._id.toString(),
+              status: 'ORDER_PLACED',
+            },
+            orderId: order._id,
+            recipientPhone: rider.phone,
+          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+        }
+      }
+    } catch (fcmErr) {
+      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+    }
+
+    // Notify Admin Supervisor
+    sendAdminSupervisorAlert({
+      title: 'New Order Placed',
+      body: `Order #${order.orderNumber} (${order.orderType === 'PICKUP_DROP' ? order.category : 'Buy For Me'}) placed by ${order.customerName} - ₹${order.fare}`,
+      data: { orderId: order._id.toString(), status: 'ORDER_PLACED' },
+    }).catch((e) => console.error('[Admin Alert Error]:', e.message));
 
     const whatsappTicket = formatWhatsAppTicket(order);
 
@@ -286,6 +316,28 @@ exports.updateMilestone = async (req, res) => {
     order.status = status;
     await order.save();
 
+    // Broadcast High-Priority Push Notification to all Online Riders
+    try {
+      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
+      for (const rider of onlineRiders) {
+        if (rider.fcmToken) {
+          sendMilestoneNotification({
+            token: rider.fcmToken,
+            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
+            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
+            data: {
+              orderId: order._id.toString(),
+              status: 'ORDER_PLACED',
+            },
+            orderId: order._id,
+            recipientPhone: rider.phone,
+          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+        }
+      }
+    } catch (fcmErr) {
+      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+    }
+
     const title = status === 'ITEM_PURCHASED' ? '🛍️ Item Picked / Purchased' : '🚀 Rider On The Way!';
     const body =
       status === 'ITEM_PURCHASED'
@@ -349,6 +401,28 @@ exports.completeDelivery = async (req, res) => {
     order.paymentMode = cleanPaymentMode;
     order.completedAt = new Date();
     await order.save();
+
+    // Broadcast High-Priority Push Notification to all Online Riders
+    try {
+      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
+      for (const rider of onlineRiders) {
+        if (rider.fcmToken) {
+          sendMilestoneNotification({
+            token: rider.fcmToken,
+            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
+            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
+            data: {
+              orderId: order._id.toString(),
+              status: 'ORDER_PLACED',
+            },
+            orderId: order._id,
+            recipientPhone: rider.phone,
+          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+        }
+      }
+    } catch (fcmErr) {
+      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+    }
 
     // Increment Rider Stats (Total Deliveries + Earnings + Today metrics + Cash/UPI breakdown)
     await Rider.findByIdAndUpdate(riderId, {
@@ -428,6 +502,28 @@ exports.cancelOrder = async (req, res) => {
     order.cancellationReason = reason || (isRiderAction ? 'Closed / Cancelled by rider' : 'Cancelled by customer');
     await order.save();
 
+    // Broadcast High-Priority Push Notification to all Online Riders
+    try {
+      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
+      for (const rider of onlineRiders) {
+        if (rider.fcmToken) {
+          sendMilestoneNotification({
+            token: rider.fcmToken,
+            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
+            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
+            data: {
+              orderId: order._id.toString(),
+              status: 'ORDER_PLACED',
+            },
+            orderId: order._id,
+            recipientPhone: rider.phone,
+          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+        }
+      }
+    } catch (fcmErr) {
+      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+    }
+
     // Send notification to customer if rider closed the order
     if (isRiderAction) {
       try {
@@ -448,6 +544,13 @@ exports.cancelOrder = async (req, res) => {
         console.error('[FCM Notification Error on Cancel]:', fcmErr);
       }
     }
+
+    // Notify Admin Supervisor
+    sendAdminSupervisorAlert({
+      title: isRiderAction ? 'Order Closed by Rider' : 'Order Cancelled by Customer',
+      body: `Order #${order.orderNumber} was cancelled (${order.cancellationReason}).`,
+      data: { orderId: order._id.toString(), status: 'CANCELLED' },
+    }).catch((e) => console.error('[Admin Alert Error]:', e.message));
 
     return res.status(200).json({
       success: true,

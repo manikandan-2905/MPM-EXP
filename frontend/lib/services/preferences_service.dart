@@ -224,4 +224,73 @@ class PreferencesService {
     }
     return result;
   }
+
+  static const String _keyInAppNotifications = 'mpm_in_app_notifications';
+
+  /// Save received notification to local inbox (keeps max 20)
+  static Future<void> saveInAppNotification({
+    required String title,
+    required String body,
+    String? type,
+    String? orderId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    final notifMap = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'title': title,
+      'body': body,
+      'type': type ?? 'ANNOUNCEMENT',
+      'orderId': orderId ?? '',
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    list.insert(0, jsonEncode(notifMap));
+    if (list.length > 20) list.removeRange(20, list.length);
+    await prefs.setStringList(_keyInAppNotifications, list);
+  }
+
+  /// Get received in-app notifications
+  static Future<List<Map<String, dynamic>>> getInAppNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    final List<Map<String, dynamic>> result = [];
+    for (final item in list) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map<String, dynamic>) {
+          result.add(decoded);
+        }
+      } catch (_) {}
+    }
+    return result;
+  }
+
+  /// Clear in-app notifications
+  static Future<void> clearInAppNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyInAppNotifications);
+  }
+
+  /// Remove single notification from in-app inbox
+  static Future<void> removeInAppNotification(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    list.removeWhere((item) {
+      try {
+        final decoded = jsonDecode(item);
+        return decoded['id']?.toString() == id;
+      } catch (_) {
+        return false;
+      }
+    });
+    await prefs.setStringList(_keyInAppNotifications, list);
+  }
+
+  /// Restore undone notification
+  static Future<void> restoreInAppNotification(Map<String, dynamic> notif) async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    list.insert(0, jsonEncode(notif));
+    await prefs.setStringList(_keyInAppNotifications, list);
+  }
 }

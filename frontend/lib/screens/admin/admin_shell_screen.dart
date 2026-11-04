@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../services/preferences_service.dart';
+import '../../services/notification_service.dart';
 import '../customer/customer_home_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_live_orders_screen.dart';
 import 'admin_rider_history_screen.dart';
+import 'admin_broadcast_screen.dart';
 
 class AdminShellScreen extends StatefulWidget {
   final int initialTab;
@@ -20,6 +22,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialTab;
+    NotificationService().registerAdminDevice();
   }
 
   void _onTabSelected(int index) {
@@ -48,6 +51,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
     if (confirm == true) {
       await PreferencesService.clearAdminSession();
+      await PreferencesService.saveLastViewMode('customer');
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
@@ -63,12 +67,14 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       AdminDashboardScreen(onSwitchTab: _onTabSelected),
       AdminLiveOrdersScreen(onSwitchTab: _onTabSelected),
       const AdminRiderHistoryScreen(),
+      const AdminBroadcastScreen(),
     ];
 
     final titles = [
       'Admin Dashboard',
       'Live Dispatch Orders',
       'Rider Trip History',
+      'Push Notification Broadcast',
     ];
 
     return Scaffold(
@@ -149,6 +155,11 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
               icon: Icon(Icons.history_outlined),
               selectedIcon: Icon(Icons.history_rounded, color: Color(0xFF0284C7)),
               label: 'Rider History',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.campaign_outlined),
+              selectedIcon: Icon(Icons.campaign_rounded, color: Color(0xFF0284C7)),
+              label: 'Broadcast',
             ),
           ],
         ),

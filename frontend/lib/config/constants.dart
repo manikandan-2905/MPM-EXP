@@ -8,15 +8,17 @@ class AppConstants {
   // Brand Identity
   static const String appName = 'ZIPPO';
   static const String appTagline = 'Trusted Local Goods Connection';
-  static const String appDownloadUrl = 'https://qrco.de/NIPPO';
+  static const String appDownloadUrl = 'https://zippo-mpm.onrender.com';
 
   // Regional Dispatch
   static const String melapalayamRegionName = 'Melapalayam, Tirunelveli';
   static const String defaultWhatsAppGroupUrl = 'https://chat.whatsapp.com/EXAMPLE_MELAPALAYAM_DISPATCH';
 
-  // Developer & Founder Support Desk
-  static const String supportName = 'Mani';
-  static const String supportRole = 'Developer & Founder';
+  // ZIPPO Support & Help Desk (zippompm@gmail.com | 7639483476 / 6379329930)
+  static const String supportDeskTitle = 'ZIPPO Customer Support Desk';
+  static const String supportEmail = 'zippompm@gmail.com';
+  static const String supportPhone1 = '7639483476';
+  static const String supportPhone2 = '6379329930';
   static const String supportPhone = '7639483476';
   static const String supportWhatsApp = '7639483476';
 
