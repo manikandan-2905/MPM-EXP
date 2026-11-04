@@ -89,6 +89,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   List<Map<String, dynamic>> _riderCompletedTrips = [];
   final Set<String> _expandedOrderIds = {};
   List<Map<String, dynamic>> _inAppNotifications = [];
+  bool get _hasUnreadNotifications => _inAppNotifications.any((n) => n['isRead'] == false || n['isRead'] == null);
 
   // ── Address autocomplete state ─────────────────────────────────────
   List<PlaceSuggestion> _pickupSuggestions = [];
@@ -147,6 +148,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Future<void> _loadStoredPreferences() async {
     final notifs = await PreferencesService.getInAppNotifications();
     if (mounted) setState(() => _inAppNotifications = notifs);
+    try {
+      final remoteBroadcasts = await _apiService.getRecentBroadcasts();
+      if (remoteBroadcasts.isNotEmpty) {
+        await PreferencesService.syncRemoteBroadcasts(remoteBroadcasts);
+        final syncedNotifs = await PreferencesService.getInAppNotifications();
+        if (mounted) setState(() => _inAppNotifications = syncedNotifs);
+      }
+    } catch (_) {}
     // Keep primary phone empty by default unless user inputs it
     _syncPhoneCheckboxes();
 
@@ -1210,7 +1219,38 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Future<void> _fetchRiderPool() async {
     try {
       final pool = await _apiService.getAvailableOrders();
-      if (mounted) setState(() => _riderPoolOrders = pool);
+      if (mounted) {
+        if (_currentViewMode == 'rider' && _isRiderLoggedIn && _isRiderOnline) {
+          final previousIds = _riderPoolOrders.map((o) => o.id).toSet();
+          final newOrders = pool.where((o) => !previousIds.contains(o.id)).toList();
+          if (newOrders.isNotEmpty && _riderPoolOrders.isNotEmpty) {
+            HapticFeedback.heavyImpact();
+            final latest = newOrders.first;
+            ScaffoldMessenger.of(context).removeCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.electric_moped_rounded, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '🚨 New Order #' + latest.orderNumber + ' in Pool! (₹' + latest.fare.toString() + ')',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: const Color(0xFF15803D),
+                duration: const Duration(seconds: 4),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            );
+          }
+        }
+        setState(() => _riderPoolOrders = pool);
+      }
     } catch (_) {}
   }
 
@@ -3276,7 +3316,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             if (_currentViewMode == 'inspector') SafeArea(child: _buildStateInspectorView()),
 
             // Notification Center Drawer Popup
-            if (_showNotificationDrawer && _currentViewMode == 'customer')
+            if (_showNotificationDrawer && (_currentViewMode == 'customer' || _currentViewMode == 'rider'))
               _buildNotificationDrawer(),
 
             // Full-screen Tracking Modal Sheet
@@ -3814,9 +3854,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   // Header actions: Notification Bell & Discreet Rider Portal
                   Row(
                     children: [
-                      // Dedicated Notification Bell with dynamic live counter badge
+                      // Dedicated Notification Bell with dynamic icon fill color (no circle dot badge)
                       GestureDetector(
                         onTap: () async {
+                          await PreferencesService.markNotificationsAsRead();
                           final notifs = await PreferencesService.getInAppNotifications();
                           if (mounted) {
                             setState(() {
@@ -3825,44 +3866,29 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             });
                           }
                         },
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B).withOpacity(0.9),
-                                border: Border.all(color: const Color(0xFF334155)),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 17),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: _hasUnreadNotifications
+                                ? const Color(0xFF76C457).withOpacity(0.18)
+                                : const Color(0xFF1E293B).withOpacity(0.9),
+                            border: Border.all(
+                              color: _hasUnreadNotifications
+                                  ? const Color(0xFF76C457)
+                                  : const Color(0xFF334155),
                             ),
-                            if ((_activeOrder != null ? 1 : 0) + _inAppNotifications.length > 0)
-                              Positioned(
-                                top: -2,
-                                right: -2,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF76C457),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFF76C457).withOpacity(0.6),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    '',
-                                    style: const TextStyle(color: Color(0xFF0F172A), fontSize: 9, fontWeight: FontWeight.w900),
-                                  ),
-                                ),
-                              ),
-                          ],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _hasUnreadNotifications
+                                ? Icons.notifications_active_rounded
+                                : Icons.notifications_none_rounded,
+                            color: _hasUnreadNotifications
+                                ? const Color(0xFF76C457)
+                                : const Color(0xFF94A3B8),
+                            size: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -5687,6 +5713,44 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                   Row(
                     children: [
+                      // Rider Notification Bell Icon with dynamic active fill color
+                      GestureDetector(
+                        onTap: () async {
+                          await PreferencesService.markNotificationsAsRead();
+                          final notifs = await PreferencesService.getInAppNotifications();
+                          if (mounted) {
+                            setState(() {
+                              _inAppNotifications = notifs;
+                              _showNotificationDrawer = !_showNotificationDrawer;
+                            });
+                          }
+                        },
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: _hasUnreadNotifications
+                                ? const Color(0xFF76C457).withOpacity(0.18)
+                                : Colors.white.withOpacity(0.12),
+                            border: Border.all(
+                              color: _hasUnreadNotifications
+                                  ? const Color(0xFF76C457)
+                                  : Colors.white24,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _hasUnreadNotifications
+                                ? Icons.notifications_active_rounded
+                                : Icons.notifications_none_rounded,
+                            color: _hasUnreadNotifications
+                                ? const Color(0xFF76C457)
+                                : const Color(0xFF94A3B8),
+                            size: 17,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20),
                         tooltip: 'Refresh Pool',

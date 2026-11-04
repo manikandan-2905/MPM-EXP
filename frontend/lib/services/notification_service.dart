@@ -14,6 +14,75 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
   } catch (_) {}
+
+  try {
+    final title = message.notification?.title ?? message.data['title'] ?? 'ZIPPO Alert';
+    final body = message.notification?.body ?? message.data['body'] ?? message.data['message'] ?? '';
+    final type = message.data['type']?.toString();
+    final orderId = message.data['order_id']?.toString();
+    final isRiderAlert = message.data['isRider'] == 'true' || message.data['isRider'] == true;
+    final isAdminAlert = message.data['isAdmin'] == 'true' || message.data['isAdmin'] == true;
+
+    if (title.isNotEmpty || body.isNotEmpty) {
+      await PreferencesService.saveInAppNotification(
+        title: title,
+        body: body,
+        type: type,
+        orderId: orderId,
+      );
+    }
+
+    // Display WhatsApp-like heads-up popup banner when app is in background/closed
+    final flutterLocalNotifications = FlutterLocalNotificationsPlugin();
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotifications.initialize(initializationSettings);
+
+    final channelId = isRiderAlert
+        ? 'zippo_rider_dispatch_alerts'
+        : (isAdminAlert ? 'zippo_admin_supervisor_alerts' : 'melapalayam_delivery_milestones');
+
+    final channelName = isRiderAlert
+        ? 'ZIPPO Rider Urgent Dispatch'
+        : (isAdminAlert ? 'ZIPPO Admin Supervisor Alerts' : 'ZIPPO Delivery Milestones');
+
+    final Color notifColor = isRiderAlert
+        ? const Color(0xFF22C55E)
+        : (isAdminAlert ? const Color(0xFFF59E0B) : const Color(0xFF76C457));
+
+    final Int64List? vibPattern = isRiderAlert
+        ? Int64List.fromList([0, 600, 200, 600, 200, 600, 400, 800])
+        : null;
+
+    await flutterLocalNotifications.show(
+      message.hashCode,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId,
+          channelName,
+          channelDescription: 'High priority heads-up notification',
+          icon: '@mipmap/ic_launcher',
+          color: notifColor,
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          vibrationPattern: vibPattern,
+          fullScreenIntent: false,
+          category: AndroidNotificationCategory.message,
+          visibility: NotificationVisibility.public,
+          ticker: title,
+        ),
+      ),
+      payload: orderId,
+    );
+  } catch (e) {
+    debugPrint('[Background Notification Handler Warning]: $e');
+  }
 }
 
 class NotificationService {
@@ -94,6 +163,7 @@ class NotificationService {
           final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
           if (androidPlugin != null) {
+            await androidPlugin.requestNotificationsPermission();
             await androidPlugin.createNotificationChannel(_channel);
             await androidPlugin.createNotificationChannel(_riderChannel);
             await androidPlugin.createNotificationChannel(_adminChannel);
@@ -114,13 +184,14 @@ class NotificationService {
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          final notification = message.notification;
+          final title = message.notification?.title ?? message.data['title'] ?? 'ZIPPO Alert';
+          final body = message.notification?.body ?? message.data['body'] ?? message.data['message'] ?? '';
           final data = message.data;
 
-          if (notification != null) {
+          if (title.isNotEmpty || body.isNotEmpty) {
             PreferencesService.saveInAppNotification(
-              title: notification.title ?? 'ZIPPO Alert',
-              body: notification.body ?? '',
+              title: title,
+              body: body,
               type: data['type']?.toString(),
               orderId: data['order_id']?.toString(),
             );
@@ -144,9 +215,9 @@ class NotificationService {
                 : null;
 
             _localNotifications.show(
-              notification.hashCode,
-              notification.title,
-              notification.body,
+              message.hashCode,
+              title,
+              body,
               NotificationDetails(
                 android: AndroidNotificationDetails(
                   targetChannel.id,
@@ -155,10 +226,13 @@ class NotificationService {
                   icon: '@mipmap/ic_launcher',
                   color: notifColor,
                   importance: Importance.max,
-                  priority: Priority.high,
+                  priority: Priority.max,
                   playSound: true,
                   enableVibration: true,
                   vibrationPattern: vibPattern,
+                  category: AndroidNotificationCategory.message,
+                  visibility: NotificationVisibility.public,
+                  ticker: title,
                   actions: callerPhone.isNotEmpty
                       ? [
                           AndroidNotificationAction(

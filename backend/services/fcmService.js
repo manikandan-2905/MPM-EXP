@@ -106,6 +106,9 @@ const sendMilestoneNotification = async ({
           : 'melapalayam_delivery_milestones',
         sound: 'default',
         priority: 'max',
+        visibility: 'public',
+        defaultSound: true,
+        ticker: title,
         color: data.isRider ? '#22C55E' : data.isAdmin ? '#F59E0B' : '#76C457',
         // Distinctive heavy double-vibration for riders so it wakes up pocket even in silence/motion!
         defaultVibrateTimings: !data.isRider,
@@ -200,7 +203,10 @@ const sendBroadcastNotification = async ({
           channelId: 'melapalayam_delivery_milestones',
           sound: 'default',
           priority: 'max',
+          visibility: 'public',
+          defaultSound: true,
           defaultVibrateTimings: true,
+          ticker: title,
         },
       },
     };

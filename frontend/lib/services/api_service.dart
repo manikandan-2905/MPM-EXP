@@ -964,7 +964,7 @@ class ApiService {
   Future<Map<String, dynamic>> getNotificationStats() async {
     try {
       final response = await http
-          .get(Uri.parse('/notifications/stats'), headers: _headers)
+          .get(Uri.parse('$baseUrl/notifications/stats'), headers: _headers)
           .timeout(const Duration(seconds: 8));
 
       final data = _safeJsonDecode(response.body);
@@ -974,6 +974,23 @@ class ApiService {
       return {};
     } catch (_) {
       return {};
+    }
+  }
+
+  /// Fetch recent broadcast announcements stored in DB for synchronization
+  Future<List<Map<String, dynamic>>> getRecentBroadcasts({String target = 'ALL'}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/notifications/broadcasts?target=$target'), headers: _headers)
+          .timeout(const Duration(seconds: 8));
+
+      final data = _safeJsonDecode(response.body);
+      if (response.statusCode == 200 && data != null && data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['broadcasts'] ?? []);
+      }
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 }

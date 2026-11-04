@@ -236,6 +236,17 @@ class PreferencesService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    // Prevent duplicate entries within short interval
+    final isDuplicate = list.any((item) {
+      try {
+        final d = jsonDecode(item);
+        return d['title'] == title && d['body'] == body;
+      } catch (_) {
+        return false;
+      }
+    });
+    if (isDuplicate) return;
+
     final notifMap = {
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'title': title,
@@ -243,9 +254,71 @@ class PreferencesService {
       'type': type ?? 'ANNOUNCEMENT',
       'orderId': orderId ?? '',
       'timestamp': DateTime.now().toIso8601String(),
+      'isRead': false,
     };
     list.insert(0, jsonEncode(notifMap));
-    if (list.length > 20) list.removeRange(20, list.length);
+    if (list.length > 30) list.removeRange(30, list.length);
+    await prefs.setStringList(_keyInAppNotifications, list);
+  }
+
+  /// Mark all notifications as read (removes active fill color from bell icon)
+  static Future<void> markNotificationsAsRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    final List<String> updated = [];
+    for (final item in list) {
+      try {
+        final d = jsonDecode(item) as Map<String, dynamic>;
+        d['isRead'] = true;
+        updated.add(jsonEncode(d));
+      } catch (_) {
+        updated.add(item);
+      }
+    }
+    await prefs.setStringList(_keyInAppNotifications, updated);
+  }
+
+  /// Check if there are any unread notifications
+  static Future<bool> hasUnreadNotifications() async {
+    final notifs = await getInAppNotifications();
+    return notifs.any((n) => n['isRead'] == false || n['isRead'] == null);
+  }
+
+  /// Sync remote MongoDB broadcasts into local inbox so users never miss announcements
+  static Future<void> syncRemoteBroadcasts(List<Map<String, dynamic>> broadcasts) async {
+    if (broadcasts.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+
+    for (final b in broadcasts) {
+      final title = b['title']?.toString() ?? 'ZIPPO Announcement';
+      final body = b['message']?.toString() ?? '';
+      if (body.isEmpty) continue;
+
+      final alreadyExists = list.any((item) {
+        try {
+          final d = jsonDecode(item);
+          return d['title'] == title && d['body'] == body;
+        } catch (_) {
+          return false;
+        }
+      });
+
+      if (!alreadyExists) {
+        final notifMap = {
+          'id': b['_id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          'title': title,
+          'body': body,
+          'type': b['type']?.toString() ?? 'ANNOUNCEMENT',
+          'orderId': '',
+          'timestamp': b['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+          'isRead': false,
+        };
+        list.insert(0, jsonEncode(notifMap));
+      }
+    }
+
+    if (list.length > 30) list.removeRange(30, list.length);
     await prefs.setStringList(_keyInAppNotifications, list);
   }
 

@@ -1,4 +1,5 @@
 const Device = require('../models/Device');
+const Broadcast = require('../models/Broadcast');
 const Rider = require('../models/Rider');
 const { sendBroadcastNotification } = require('../services/fcmService');
 
@@ -86,8 +87,9 @@ exports.broadcastNotification = async (req, res) => {
       adminPassword,
     } = req.body;
 
-    // Admin authentication
-    if (adminPassword !== (process.env.ADMIN_PASSWORD || 'mpm2026') && adminPassword !== 'admin123') {
+    // Admin authentication (accepts mani2006, admin123, mpm2026, or env)
+    const validPasswords = [process.env.ADMIN_PASSWORD, 'mani2006', 'admin123', 'mpm2026'].filter(Boolean);
+    if (!validPasswords.includes(adminPassword)) {
       return res.status(401).json({ success: false, message: 'Invalid Admin Credentials' });
     }
 
@@ -135,10 +137,28 @@ exports.broadcastNotification = async (req, res) => {
       actionUrl: actionUrl || '',
     });
 
+    // Save permanently in MongoDB Atlas
+    let savedBroadcast = null;
+    try {
+      savedBroadcast = await Broadcast.create({
+        title,
+        message,
+        target,
+        type,
+        actionUrl: actionUrl || '',
+        totalRecipients: result.totalRecipients || uniqueTokens.length,
+        successCount: result.successCount || 0,
+        failureCount: result.failureCount || 0,
+      });
+    } catch (dbErr) {
+      console.error('[Broadcast DB Save Error]:', dbErr.message);
+    }
+
     return res.status(200).json({
       success: true,
       message: `Broadcast dispatched to ${result.totalRecipients} devices`,
       stats: result,
+      broadcast: savedBroadcast,
     });
   } catch (error) {
     console.error('[Broadcast Notification Error]:', error);
@@ -224,3 +244,22 @@ exports.getNotificationStats = async (req, res) => {
   }
 };
 
+
+/**
+ * Get recent broadcast notifications for in-app notification drawer
+ * GET /api/notifications/broadcasts
+ */
+exports.getRecentBroadcasts = async (req, res) => {
+  try {
+    const { target } = req.query;
+    const filter = {};
+    if (target && target !== 'ALL') {
+      filter.$or = [{ target: 'ALL' }, { target }];
+    }
+    const broadcasts = await Broadcast.find(filter).sort({ createdAt: -1 }).limit(20).lean();
+    return res.status(200).json({ success: true, broadcasts });
+  } catch (error) {
+    console.error('[Get Broadcasts Error]:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

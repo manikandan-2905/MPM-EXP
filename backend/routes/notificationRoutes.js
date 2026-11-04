@@ -8,6 +8,7 @@ router.post('/toggle', notificationController.toggleNotificationPreference);
 
 // Admin Broadcast Operations
 router.get('/stats', notificationController.getNotificationStats);
+router.get('/broadcasts', notificationController.getRecentBroadcasts);
 router.post('/broadcast', notificationController.broadcastNotification);
 router.post('/riders-online-alert', notificationController.notifyRidersAvailable);
 
