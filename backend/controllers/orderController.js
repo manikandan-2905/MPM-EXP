@@ -131,26 +131,45 @@ exports.createOrder = async (req, res) => {
       console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
     }
 
-    // Broadcast High-Priority Push Notification to all Online Riders
+    // Notify Riders if order is cancelled
     try {
-      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
-      for (const rider of onlineRiders) {
-        if (rider.fcmToken) {
+      if (!isRiderAction) {
+        // Cancelled by Customer
+        if (order.assignedRider && order.assignedRider.fcmToken) {
+          // Specific assigned rider
           sendMilestoneNotification({
-            token: rider.fcmToken,
-            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
-            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
+            token: order.assignedRider.fcmToken,
+            title: '❌ Order Cancelled by Customer',
+            body: `Order #${order.orderNumber} was cancelled by the customer.`,
             data: {
               orderId: order._id.toString(),
-              status: 'ORDER_PLACED',
+              status: 'CANCELLED',
             },
             orderId: order._id,
-            recipientPhone: rider.phone,
+            recipientPhone: order.assignedRider.phone,
           }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+        } else {
+          // Unassigned order cancelled from pool -> notify online fleet
+          const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
+          for (const rider of onlineRiders) {
+            if (rider.fcmToken) {
+              sendMilestoneNotification({
+                token: rider.fcmToken,
+                title: '❌ Order Cancelled',
+                body: `Order #${order.orderNumber} in Melapalayam was withdrawn.`,
+                data: {
+                  orderId: order._id.toString(),
+                  status: 'CANCELLED',
+                },
+                orderId: order._id,
+                recipientPhone: rider.phone,
+              }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
+            }
+          }
         }
       }
     } catch (fcmErr) {
-      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+      console.warn('[FCM Rider Cancellation Notice]:', fcmErr.message);
     }
 
     // Notify Admin Supervisor

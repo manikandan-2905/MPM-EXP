@@ -1122,7 +1122,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cancellation error: '), backgroundColor: Colors.redAccent),
+          SnackBar(content: Text('Cancellation error: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.redAccent),
         );
       }
     }
