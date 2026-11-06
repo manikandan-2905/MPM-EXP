@@ -12,8 +12,11 @@ const initFirebase = () => {
   try {
     let serviceAccount = null;
 
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64.trim(), 'base64').toString('utf8');
+      serviceAccount = JSON.parse(decoded);
+    } else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON.trim());
     } else {
       const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || path.join(__dirname, '../serviceAccountKey.json');
       if (fs.existsSync(keyPath)) {
