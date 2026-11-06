@@ -68,36 +68,11 @@ exports.toggleOnlineStatus = async (req, res) => {
     const { riderId } = req.params;
     const { isOnline } = req.body;
 
-    const previousOnlineCount = await Rider.countDocuments({ isOnline: true });
-
     const rider = await Rider.findByIdAndUpdate(
       riderId,
       { isOnline: Boolean(isOnline) },
       { new: true }
     );
-
-    // Automatic Trigger: If 1st rider comes online (0 -> 1+), notify customers!
-    if (Boolean(isOnline) && previousOnlineCount === 0) {
-      const now = Date.now();
-      if (now - lastRiderOnlineBroadcast > 60 * 60 * 1000) { // 1 hr cooldown
-        lastRiderOnlineBroadcast = now;
-        Device.find({ role: 'CUSTOMER', notificationsEnabled: true })
-          .select('fcmToken')
-          .then((devices) => {
-            const tokens = devices.map((d) => d.fcmToken).filter(Boolean);
-            if (tokens.length > 0) {
-              sendBroadcastNotification({
-                tokens,
-                title: '🛵 ZIPPO Riders are Online Now!',
-                body: 'Need medicines, groceries, or food? Order now for guaranteed 15-minute express delivery in Melapalayam!',
-                data: { type: 'RIDERS_ONLINE' },
-                actionUrl: 'https://zippo-mpm.onrender.com',
-              }).catch((e) => console.error('[Auto Rider Online FCM Error]:', e.message));
-            }
-          })
-          .catch((e) => console.error('[Auto Rider Device Lookup Error]:', e.message));
-      }
-    }
 
     if (!rider) {
       return res.status(404).json({ success: false, message: 'Rider not found' });

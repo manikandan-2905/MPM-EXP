@@ -52,28 +52,20 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen> {
       _selectedType = type;
       if (type == 'UPDATE') {
         _selectedTarget = 'ALL';
-        _titleController.text = '⚡ New ZIPPO Update Available!';
-        _messageController.text =
-            'A new version of ZIPPO is available with faster 15-min tracking. Tap to download and install now!';
         _urlController.text = AppConstants.appDownloadUrl;
       } else if (type == 'OFFER') {
         _selectedTarget = 'CUSTOMERS';
-        _titleController.text = '🔥 Special Bazar Offer Today!';
-        _messageController.text =
-            'Special discounts on food and grocery delivery in Melapalayam! Order now for guaranteed 15-minute express delivery.';
-        _urlController.text = 'https://zippo-mpm.onrender.com';
+        _urlController.clear();
       } else if (type == 'RIDERS_ONLINE') {
         _selectedTarget = 'CUSTOMERS';
-        _titleController.text = '🛵 ZIPPO Riders are Online Now!';
-        _messageController.text =
-            'Need medicines, groceries, or food? Order now for guaranteed 15-minute express delivery in Melapalayam!';
-        _urlController.text = 'https://zippo-mpm.onrender.com';
+        _urlController.clear();
       } else {
-        // Clear all fields for custom broadcast
-        _titleController.clear();
-        _messageController.clear();
+        _selectedTarget = 'ALL';
         _urlController.clear();
       }
+      // Keep title and message blank so admin types their own custom message without default messages
+      _titleController.clear();
+      _messageController.clear();
     });
   }
 

@@ -226,6 +226,7 @@ class PreferencesService {
   }
 
   static const String _keyInAppNotifications = 'mpm_in_app_notifications';
+  static const String _keyDismissedBroadcastIds = 'mpm_dismissed_broadcast_ids';
 
   /// Save received notification to local inbox (keeps max 20)
   static Future<void> saveInAppNotification({
@@ -285,12 +286,20 @@ class PreferencesService {
   }
 
   /// Sync remote MongoDB broadcasts into local inbox so users never miss announcements
+  /// Checks permanently dismissed IDs so deleted broadcasts are NEVER re-added for the user
   static Future<void> syncRemoteBroadcasts(List<Map<String, dynamic>> broadcasts) async {
     if (broadcasts.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    final dismissed = prefs.getStringList(_keyDismissedBroadcastIds) ?? [];
 
     for (final b in broadcasts) {
+      final bId = b['_id']?.toString() ?? '';
+      // If permanently deleted by this user, never re-add
+      if (bId.isNotEmpty && dismissed.contains(bId)) {
+        continue;
+      }
+
       final title = b['title']?.toString() ?? 'ZIPPO Announcement';
       final body = b['message']?.toString() ?? '';
       if (body.isEmpty) continue;
@@ -298,7 +307,7 @@ class PreferencesService {
       final alreadyExists = list.any((item) {
         try {
           final d = jsonDecode(item);
-          return d['title'] == title && d['body'] == body;
+          return d['id'] == bId || (d['title'] == title && d['body'] == body);
         } catch (_) {
           return false;
         }
@@ -306,7 +315,7 @@ class PreferencesService {
 
       if (!alreadyExists) {
         final notifMap = {
-          'id': b['_id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          'id': bId.isNotEmpty ? bId : DateTime.now().millisecondsSinceEpoch.toString(),
           'title': title,
           'body': body,
           'type': b['type']?.toString() ?? 'ANNOUNCEMENT',
@@ -338,13 +347,25 @@ class PreferencesService {
     return result;
   }
 
-  /// Clear in-app notifications
+  /// Clear in-app notifications (marks all as permanently dismissed so remote sync won't restore them)
   static Future<void> clearInAppNotifications() async {
     final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    final dismissed = prefs.getStringList(_keyDismissedBroadcastIds) ?? [];
+    for (final item in list) {
+      try {
+        final d = jsonDecode(item);
+        final id = d['id']?.toString();
+        if (id != null && !dismissed.contains(id)) {
+          dismissed.add(id);
+        }
+      } catch (_) {}
+    }
+    await prefs.setStringList(_keyDismissedBroadcastIds, dismissed);
     await prefs.remove(_keyInAppNotifications);
   }
 
-  /// Remove single notification from in-app inbox
+  /// Remove single notification from in-app inbox and mark permanently dismissed
   static Future<void> removeInAppNotification(String id) async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_keyInAppNotifications) ?? [];
@@ -357,12 +378,25 @@ class PreferencesService {
       }
     });
     await prefs.setStringList(_keyInAppNotifications, list);
+
+    // Save to permanently dismissed list so remote sync never re-adds it
+    final dismissed = prefs.getStringList(_keyDismissedBroadcastIds) ?? [];
+    if (!dismissed.contains(id)) {
+      dismissed.add(id);
+      await prefs.setStringList(_keyDismissedBroadcastIds, dismissed);
+    }
   }
 
   /// Restore undone notification
   static Future<void> restoreInAppNotification(Map<String, dynamic> notif) async {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList(_keyInAppNotifications) ?? [];
+    final dismissed = prefs.getStringList(_keyDismissedBroadcastIds) ?? [];
+    final notifId = notif['id']?.toString();
+    if (notifId != null) {
+      dismissed.remove(notifId);
+      await prefs.setStringList(_keyDismissedBroadcastIds, dismissed);
+    }
     list.insert(0, jsonEncode(notif));
     await prefs.setStringList(_keyInAppNotifications, list);
   }

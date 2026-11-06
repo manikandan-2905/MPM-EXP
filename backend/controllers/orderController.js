@@ -1,6 +1,61 @@
 const Order = require('../models/Order');
 const Rider = require('../models/Rider');
-const { sendMilestoneNotification, sendAdminSupervisorAlert } = require('../services/fcmService');
+const Device = require('../models/Device');
+const { sendMilestoneNotification, sendBroadcastNotification, sendAdminSupervisorAlert } = require('../services/fcmService');
+
+/**
+ * Helper to resolve customer FCM token from order or Device collection
+ */
+const resolveCustomerToken = async (order) => {
+  if (order.customerFcmToken && typeof order.customerFcmToken === 'string' && order.customerFcmToken.trim().length > 10) {
+    return order.customerFcmToken.trim();
+  }
+  if (order.customerPhone) {
+    try {
+      const cleanPhone = order.customerPhone.replace(/\D/g, '').slice(-10);
+      const device = await Device.findOne({
+        $or: [
+          { phone: order.customerPhone },
+          { phone: { $regex: cleanPhone + '$' } },
+        ],
+        notificationsEnabled: true,
+      }).sort({ updatedAt: -1 });
+      if (device && device.fcmToken) return device.fcmToken;
+    } catch (_) {}
+  }
+  return null;
+};
+
+/**
+ * Helper to broadcast instant push notification to all online riders in parallel
+ */
+const notifyOnlineRiders = async ({ title, body, orderId, orderNumber }) => {
+  try {
+    const onlineRiders = await Rider.find({ isOnline: true }).select('fcmToken phone');
+    const riderDevices = await Device.find({ role: 'RIDER', notificationsEnabled: true }).select('fcmToken phone');
+
+    const tokenSet = new Set();
+    onlineRiders.forEach((r) => { if (r.fcmToken && r.fcmToken.trim().length > 10) tokenSet.add(r.fcmToken.trim()); });
+    riderDevices.forEach((d) => { if (d.fcmToken && d.fcmToken.trim().length > 10) tokenSet.add(d.fcmToken.trim()); });
+
+    const tokens = Array.from(tokenSet);
+    if (tokens.length > 0) {
+      await sendBroadcastNotification({
+        tokens,
+        title,
+        body,
+        data: {
+          orderId: orderId.toString(),
+          orderNumber: orderNumber ? orderNumber.toString() : '',
+          status: 'ORDER_PLACED',
+          isRider: 'true',
+        },
+      });
+    }
+  } catch (err) {
+    console.error('[Rider Notification Broadcast Error]:', err.message);
+  }
+};
 
 /**
  * Calculates fare according to the Melapalayam fare engine:
@@ -108,69 +163,13 @@ exports.createOrder = async (req, res) => {
 
     await order.save();
 
-    // Broadcast Instant FCM Push Notification to all Online Riders
-    try {
-      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
-      for (const rider of onlineRiders) {
-        if (rider.fcmToken) {
-          sendMilestoneNotification({
-            token: rider.fcmToken,
-            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
-            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to view and accept!`,
-            data: {
-              orderId: order._id.toString(),
-              status: 'ORDER_PLACED',
-              isRider: true,
-            },
-            orderId: order._id,
-            recipientPhone: rider.phone,
-          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
-        }
-      }
-    } catch (fcmErr) {
-      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
-    }
-
-    // Notify Riders if order is cancelled
-    try {
-      if (!isRiderAction) {
-        // Cancelled by Customer
-        if (order.assignedRider && order.assignedRider.fcmToken) {
-          // Specific assigned rider
-          sendMilestoneNotification({
-            token: order.assignedRider.fcmToken,
-            title: '❌ Order Cancelled by Customer',
-            body: `Order #${order.orderNumber} was cancelled by the customer.`,
-            data: {
-              orderId: order._id.toString(),
-              status: 'CANCELLED',
-            },
-            orderId: order._id,
-            recipientPhone: order.assignedRider.phone,
-          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
-        } else {
-          // Unassigned order cancelled from pool -> notify online fleet
-          const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
-          for (const rider of onlineRiders) {
-            if (rider.fcmToken) {
-              sendMilestoneNotification({
-                token: rider.fcmToken,
-                title: '❌ Order Cancelled',
-                body: `Order #${order.orderNumber} in Melapalayam was withdrawn.`,
-                data: {
-                  orderId: order._id.toString(),
-                  status: 'CANCELLED',
-                },
-                orderId: order._id,
-                recipientPhone: rider.phone,
-              }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
-            }
-          }
-        }
-      }
-    } catch (fcmErr) {
-      console.warn('[FCM Rider Cancellation Notice]:', fcmErr.message);
-    }
+    // Broadcast Instant FCM Push Notification to all Online Riders in parallel
+    notifyOnlineRiders({
+      title: order.isUrgent ? '⚡ URGENT New Order Available!' : '🛵 New Order Available!',
+      body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to view and accept!`,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+    });
 
     // Notify Admin Supervisor
     sendAdminSupervisorAlert({
@@ -291,19 +290,22 @@ exports.claimOrder = async (req, res) => {
     }
 
     // Trigger High-Priority FCM push notification to Customer with Direct Phone Call action
-    await sendMilestoneNotification({
-      token: order.customerFcmToken,
-      title: '🛵 Rider Assigned!',
-      body: `${rider.name} has accepted your order #${order.orderNumber} and is heading to the pickup spot.`,
-      data: {
-        orderId: order._id.toString(),
-        orderNumber: order.orderNumber,
-        status: 'RIDER_ASSIGNED',
-        callerPhone: rider.phone,
-      },
-      orderId: order._id,
-      recipientPhone: order.customerPhone,
-    });
+    const customerToken = await resolveCustomerToken(order);
+    if (customerToken) {
+      sendMilestoneNotification({
+        token: customerToken,
+        title: '🛵 Rider Assigned!',
+        body: `${rider.name} (${rider.phone}) has accepted your order #${order.orderNumber} and is heading to the pickup spot.`,
+        data: {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber,
+          status: 'RIDER_ASSIGNED',
+          callerPhone: rider.phone,
+        },
+        orderId: order._id,
+        recipientPhone: order.customerPhone,
+      }).catch((err) => console.error('[Customer Claim Notification Error]:', err.message));
+    }
 
     return res.status(200).json({
       success: true,
@@ -335,47 +337,30 @@ exports.updateMilestone = async (req, res) => {
     order.status = status;
     await order.save();
 
-    // Broadcast High-Priority Push Notification to all Online Riders
-    try {
-      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
-      for (const rider of onlineRiders) {
-        if (rider.fcmToken) {
-          sendMilestoneNotification({
-            token: rider.fcmToken,
-            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
-            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
-            data: {
-              orderId: order._id.toString(),
-              status: 'ORDER_PLACED',
-            },
-            orderId: order._id,
-            recipientPhone: rider.phone,
-          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
-        }
-      }
-    } catch (fcmErr) {
-      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
-    }
-
     const title = status === 'ITEM_PURCHASED' ? '🛍️ Item Picked / Purchased' : '🚀 Rider On The Way!';
+    const riderName = order.assignedRider ? order.assignedRider.name : 'Rider';
+    const riderPhone = order.assignedRider ? order.assignedRider.phone : '';
     const body =
       status === 'ITEM_PURCHASED'
-        ? `${order.assignedRider.name} has picked up/purchased your items and is packing them.`
-        : `${order.assignedRider.name} is on the way to your delivery landmark. Please keep your 4-digit PIN ready: ${order.deliveryPin}`;
+        ? `${riderName} has picked up/purchased your items and is heading to drop location.`
+        : `${riderName} is on the way to your delivery landmark. Please keep your 4-digit PIN ready: ${order.deliveryPin}`;
 
-    await sendMilestoneNotification({
-      token: order.customerFcmToken,
-      title,
-      body,
-      data: {
-        orderId: order._id.toString(),
-        orderNumber: order.orderNumber,
-        status,
-        callerPhone: order.assignedRider.phone,
-      },
-      orderId: order._id,
-      recipientPhone: order.customerPhone,
-    });
+    const customerToken = await resolveCustomerToken(order);
+    if (customerToken) {
+      sendMilestoneNotification({
+        token: customerToken,
+        title,
+        body,
+        data: {
+          orderId: order._id.toString(),
+          orderNumber: order.orderNumber,
+          status,
+          callerPhone: riderPhone,
+        },
+        orderId: order._id,
+        recipientPhone: order.customerPhone,
+      }).catch((err) => console.error('[Customer Milestone Notification Error]:', err.message));
+    }
 
     return res.status(200).json({
       success: true,
@@ -420,28 +405,6 @@ exports.completeDelivery = async (req, res) => {
     order.paymentMode = cleanPaymentMode;
     order.completedAt = new Date();
     await order.save();
-
-    // Broadcast High-Priority Push Notification to all Online Riders
-    try {
-      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
-      for (const rider of onlineRiders) {
-        if (rider.fcmToken) {
-          sendMilestoneNotification({
-            token: rider.fcmToken,
-            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
-            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
-            data: {
-              orderId: order._id.toString(),
-              status: 'ORDER_PLACED',
-            },
-            orderId: order._id,
-            recipientPhone: rider.phone,
-          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
-        }
-      }
-    } catch (fcmErr) {
-      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
-    }
 
     // Increment Rider Stats (Total Deliveries + Earnings + Today metrics + Cash/UPI breakdown)
     await Rider.findByIdAndUpdate(riderId, {
@@ -521,44 +484,37 @@ exports.cancelOrder = async (req, res) => {
     order.cancellationReason = reason || (isRiderAction ? 'Closed / Cancelled by rider' : 'Cancelled by customer');
     await order.save();
 
-    // Broadcast High-Priority Push Notification to all Online Riders
-    try {
-      const onlineRiders = await Rider.find({ isOnline: true, fcmToken: { $exists: true, $ne: null } });
-      for (const rider of onlineRiders) {
-        if (rider.fcmToken) {
-          sendMilestoneNotification({
-            token: rider.fcmToken,
-            title: order.isUrgent ? '⚡ URGENT New Order Available!' : '📦 New Order Available!',
-            body: `Order #${order.orderNumber} in Melapalayam (₹${order.fare}). Tap to accept!`,
-            data: {
-              orderId: order._id.toString(),
-              status: 'ORDER_PLACED',
-            },
-            orderId: order._id,
-            recipientPhone: rider.phone,
-          }).catch((err) => console.error('[FCM Rider Alert Error]:', err.message));
-        }
-      }
-    } catch (fcmErr) {
-      console.warn('[FCM Rider Dispatch Notice]:', fcmErr.message);
+    // Notify assigned rider if customer cancelled
+    if (!isRiderAction && order.assignedRider && order.assignedRider.fcmToken) {
+      sendMilestoneNotification({
+        token: order.assignedRider.fcmToken,
+        title: '❌ Order Cancelled by Customer',
+        body: `Order #${order.orderNumber} was cancelled by the customer.`,
+        data: { orderId: order._id.toString(), status: 'CANCELLED' },
+        orderId: order._id,
+        recipientPhone: order.assignedRider.phone,
+      }).catch((err) => console.error('[Rider Cancel Alert Error]:', err.message));
     }
 
     // Send notification to customer if rider closed the order
     if (isRiderAction) {
       try {
-        await sendMilestoneNotification({
-          token: order.customerFcmToken,
-          title: '⚠️ Order Closed by Rider',
-          body: 'Order #' + order.orderNumber + ' was closed by rider: ' + order.cancellationReason + '. You may re-order or contact support.',
-          data: {
-            orderId: order._id.toString(),
-            orderNumber: order.orderNumber,
-            status: 'CANCELLED',
-            reason: order.cancellationReason,
-          },
-          orderId: order._id,
-          recipientPhone: order.customerPhone,
-        });
+        const customerToken = await resolveCustomerToken(order);
+        if (customerToken) {
+          await sendMilestoneNotification({
+            token: customerToken,
+            title: '⚠️ Order Closed by Rider',
+            body: 'Order #' + order.orderNumber + ' was closed by rider: ' + order.cancellationReason + '. You may re-order or contact support.',
+            data: {
+              orderId: order._id.toString(),
+              orderNumber: order.orderNumber,
+              status: 'CANCELLED',
+              reason: order.cancellationReason,
+            },
+            orderId: order._id,
+            recipientPhone: order.customerPhone,
+          });
+        }
       } catch (fcmErr) {
         console.error('[FCM Notification Error on Cancel]:', fcmErr);
       }

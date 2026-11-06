@@ -3533,48 +3533,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         const SizedBox(height: 8),
                       ],
 
-                      // 2. Real Fleet Status Card
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: _activeRidersCount > 0 ? const Color(0xFFF4FBF0) : const Color(0xFFF8FAFC),
-                          border: Border.all(color: _activeRidersCount > 0 ? const Color(0xFFCBEDBC) : const Color(0xFFE2E8F0)),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(top: 4),
-                              decoration: BoxDecoration(
-                                color: _activeRidersCount > 0 ? const Color(0xFF76C457) : const Color(0xFF94A3B8),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _activeRidersCount > 0 ? 'Riders Active in Melapalayam' : 'Fleet Standby',
-                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: Color(0xFF0F172A)),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _activeRidersCount > 0
-                                        ? _activeRidersCount.toString() + ' active rider(s) on duty for 15-minute delivery.'
-                                        : 'Riders are on standby. Orders are automatically dispatched to active riders.',
-                                    style: const TextStyle(fontSize: 10, color: Color(0xFF475569)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+
 
                       // 3. In-App Notifications List with Left-Swipe Dismiss and Delete Icon
                       if (_inAppNotifications.isNotEmpty) ...[
